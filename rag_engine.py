@@ -35,14 +35,14 @@ def query(question, top_k=1):
 if __name__ == "__main__":
     # טעינת ידע ראשוני
     knowledge = [
-        "מניה היא נייר ערך שמייצג בעלות חלקית בחברה.",
-        "אג\"ח הוא נייר ערך המהווה התחייבות חוב מצד המנפיק כלפי המחזיק.",
-        "רמת סיכון גבוהה מתאימה למשקיעים שמוכנים לקחת סיכונים משמעותיים תמורת תשואות גבוהות.",
-        "פיזור השקעות עוזר להקטין את הסיכון הכולל של התיק."
+        "A stock is a security that represents partial ownership in a company.",
+        "A bond is a security that represents a debt obligation from the issuer to the holder.",
+        "High risk is suitable for investors willing to take significant risks for higher returns.",
+        "Diversifying investments helps reduce the overall portfolio risk."
     ]
     load_data(knowledge)
-    
+
     # בדיקה עם שאלה
-    question = "מה זה מניה?"
+    question = "What is a stock?"
     answer = query(question)
     print(f"\n❓ Question: {question}\n💡 Answer: {answer}")

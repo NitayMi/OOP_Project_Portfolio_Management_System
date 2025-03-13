@@ -6,10 +6,10 @@ from langchain.chains import RetrievalQA
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 
-llm = Ollama(model="llama3.1", base_url="http://127.0.0.1:11434")
+llm = Ollama(model="deepseek-r1:7b", base_url="http://127.0.0.1:11434")
 
 embed_model = OllamaEmbeddings(
-    model="llama3.1",
+    model="deepseek-r1:7b",
     base_url='http://127.0.0.1:11434'
 )
 
