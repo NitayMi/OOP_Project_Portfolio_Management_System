@@ -98,4 +98,26 @@ class controller:
         print("AI Advice:", answer)
         return answer
 
+# עדכון 13.03
+    def calculate_projected_risk(self, name, sector, variance, security_type, subtype, amount):
+        # יצירת אובייקט מניה או אג"ח
+        if security_type == 'stock':
+            security = Stock(name, sector, variance, subtype)
+        elif security_type == 'bond':
+            security = Bond(name, sector, variance, subtype)
+        else:
+            return self.portfolio.calculate_total_risk()  # מחזיר סיכון קיים אם לא זוהה
+
+        # חישוב הסיכון של הנייר החדש
+        security_risk = security.calculate_risk()
+
+        # שליפת כמות כוללת בתיק הנוכחי
+        current_data = self.dbmodel.getdata()
+        total_current_amount = sum(sec['ammont'] for sec in current_data.values())
+        current_total_risk = self.portfolio.calculate_total_risk()
+
+        # חישוב סיכון משוקלל חדש
+        total_risk = (current_total_risk * total_current_amount + security_risk * amount) / (total_current_amount + amount)
+
+        return total_risk
 

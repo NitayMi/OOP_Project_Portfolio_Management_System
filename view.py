@@ -123,58 +123,135 @@ class view:
             else:
                 print(Fore.RED + "Invalid choice. Please try again." + Style.RESET_ALL)
 
+# פונקציית BUY חדשה
     def buy(self):
-        print(Fore.YELLOW + "\n📋 Available Securities to Buy:" + Style.RESET_ALL)
+        print(Fore.BLUE + "\n📋 Available Securities to Buy:" + Style.RESET_ALL)
         securities = self.controller.get_available_securities()
 
         for idx, sec in enumerate(securities, start=1):
-            print(Fore.LIGHTYELLOW_EX + f"{idx}. {sec['name']} ({sec['type']}, {sec['sub_type']}, {sec['sector']}, Variance: {sec['variance']}, Price: {sec['basevalue']})" + Style.RESET_ALL)
+            print(Fore.YELLOW + f"{idx}. {sec['name']} ({sec['type']}, {sec['sub_type']}, {sec['sector']}, Variance: {sec['variance']}, Price: {sec['basevalue']})" + Style.RESET_ALL)
 
         try:
             choice = int(input("\nChoose security number to buy: ")) - 1
-            amount = int(input("Enter amount to buy: "))
             if choice < 0 or choice >= len(securities):
-                print(Fore.RED + "Invalid security choice." + Style.RESET_ALL)
+                print(Fore.RED + "❌ Invalid choice." + Style.RESET_ALL)
                 return
         except ValueError:
-            print(Fore.RED + "Invalid input." + Style.RESET_ALL)
+            print(Fore.RED + "❌ Invalid input." + Style.RESET_ALL)
+            return
+
+        try:
+            amount = int(input("Enter amount to buy: "))
+            if amount <= 0:
+                print(Fore.RED + "❌ Amount must be positive." + Style.RESET_ALL)
+                return
+        except ValueError:
+            print(Fore.RED + "❌ Invalid input." + Style.RESET_ALL)
             return
 
         sec = securities[choice]
+        # חישוב סיכון עתידי
+        projected_risk = self.controller.calculate_projected_risk(
+            name=sec['name'], sector=sec['sector'], variance=sec['variance'],
+            security_type=sec['type'], subtype=sec['sub_type'],
+            amount=amount
+        )
+
+        # ניסיון לקנייה
         success, message = self.controller.buy(
             name=sec['name'], sector=sec['sector'], variance=sec['variance'],
             security_type=sec['type'], subtype=sec['sub_type'],
             amount=amount, basevalue=sec['basevalue']
         )
-        print(Fore.GREEN + message if success else Fore.RED + message + Style.RESET_ALL)
+
+        print(Fore.GREEN + message if success else Fore.RED + message)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
-    def sell(self):
-        print(Fore.YELLOW + "\n📋 Your Portfolio:" + Style.RESET_ALL)
-        portfolio = self.controller.get_portfolio_data()
+    # def sell(self):
+    #     print(Fore.YELLOW + "\n📋 Your Portfolio:" + Style.RESET_ALL)
+    #     portfolio = self.controller.get_portfolio_data()
 
-        if not portfolio:
+    #     if not portfolio:
+    #         print(Fore.RED + "Your portfolio is empty." + Style.RESET_ALL)
+    #         return
+
+    #     portfolio_list = list(portfolio.values())
+    #     for idx, sec in enumerate(portfolio_list, start=1):
+    #         print(Fore.LIGHTYELLOW_EX + f"{idx}. {sec['name']} (Amount: {sec['ammont']}, Base Value: {sec['basevalue']})" + Style.RESET_ALL)
+
+    #     try:
+    #         choice = int(input("\nChoose security number to sell: ")) - 1
+    #         amount = int(input("Enter amount to sell: "))
+    #         if choice < 0 or choice >= len(portfolio_list):
+    #             print(Fore.RED + "Invalid security choice." + Style.RESET_ALL)
+    #             return
+    #     except ValueError:
+    #         print(Fore.RED + "Invalid input." + Style.RESET_ALL)
+    #         return
+
+    #     name = portfolio_list[choice]['name']
+    #     success, message = self.controller.sell(name, amount)
+    #     print(Fore.GREEN + message if success else Fore.RED + message + Style.RESET_ALL)
+    #     input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
+
+# פונקציית SELL חדשה
+    def sell(self):
+        print(Fore.BLUE + "\n📋 Your Portfolio:" + Style.RESET_ALL)
+        portfolio_data = self.controller.get_portfolio_data()
+
+        if not portfolio_data:
             print(Fore.RED + "Your portfolio is empty." + Style.RESET_ALL)
             return
 
-        portfolio_list = list(portfolio.values())
-        for idx, sec in enumerate(portfolio_list, start=1):
-            print(Fore.LIGHTYELLOW_EX + f"{idx}. {sec['name']} (Amount: {sec['ammont']}, Base Value: {sec['basevalue']})" + Style.RESET_ALL)
+        # הצגת הניירות ברשימה פשוטה
+        securities = list(portfolio_data.values())
+        for idx, sec in enumerate(securities, start=1):
+            risk = self.controller.calculate_projected_risk(
+                name=sec['name'],
+                sector=sec['sector'],
+                variance=sec['variance'],
+                security_type=sec['type'],
+                subtype=sec['subtype'],
+                amount=sec['ammont']
+            )
+            print(Fore.YELLOW + f"{idx}. {sec['name']} | Amount: {sec['ammont']} | Base Value: {sec['basevalue']} | Risk: {risk:.2f}" + Style.RESET_ALL)
 
+        # קבלת בחירת המשתמש
         try:
             choice = int(input("\nChoose security number to sell: ")) - 1
-            amount = int(input("Enter amount to sell: "))
-            if choice < 0 or choice >= len(portfolio_list):
-                print(Fore.RED + "Invalid security choice." + Style.RESET_ALL)
+            if choice < 0 or choice >= len(securities):
+                print(Fore.RED + "❌ Invalid choice." + Style.RESET_ALL)
                 return
         except ValueError:
-            print(Fore.RED + "Invalid input." + Style.RESET_ALL)
+            print(Fore.RED + "❌ Invalid input." + Style.RESET_ALL)
             return
 
-        name = portfolio_list[choice]['name']
-        success, message = self.controller.sell(name, amount)
+        selected_security = securities[choice]
+        name_to_sell = selected_security['name']
+        available_amount = selected_security['ammont']
+
+        print(Fore.CYAN + f"\nYou chose to sell '{name_to_sell}'. You own {available_amount} units." + Style.RESET_ALL)
+
+        # קבלת כמות למכירה
+        try:
+            amount_to_sell = int(input(f"Enter amount to sell (Available: {available_amount}): "))
+            if amount_to_sell <= 0:
+                print(Fore.RED + "❌ Amount must be positive." + Style.RESET_ALL)
+                return
+        except ValueError:
+            print(Fore.RED + "❌ Invalid amount." + Style.RESET_ALL)
+            return
+
+        # בדיקת כמות
+        if amount_to_sell > available_amount:
+            print(Fore.RED + f"❌ Cannot sell more than available. You own {available_amount} units." + Style.RESET_ALL)
+            return
+
+        # ביצוע מכירה
+        success, message = self.controller.sell(name_to_sell, amount_to_sell)
         print(Fore.GREEN + message if success else Fore.RED + message + Style.RESET_ALL)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
+
 
     def get_advice(self):
         question = input("Enter your question for AI Advisor: ")
