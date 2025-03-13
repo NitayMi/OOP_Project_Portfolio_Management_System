@@ -1,54 +1,41 @@
-# from securitiesmodel import Stock, Bond, Portfolio
+from securitiesmodel import Stock, Bond
+import math  # להוסיף לדיוק בחישובים
 
-# def test_stock():
-#     print("\n--- Test: Stock ---")
-#     stock1 = Stock(name="Tech Stock", sector="Technology", variance="High", preferred=False)
-#     print("Stock Info:", stock1.get_info())
+def test_stock_risk():
+    print("\n🧪 Testing Stock Risk Calculation:")
 
-#     stock2 = Stock(name="Real Estate Preferred", sector="Real Estate", variance="Low", preferred=True)
-#     print("Stock Info:", stock2.get_info())
+    s1 = Stock("Apple", "Technology", "High", "common")
+    s2 = Stock("Teva", "Health", "Low", "preferred")
 
-# def test_bond():
-#     print("\n--- Test: Bond ---")
-#     bond1 = Bond(name="Government Bond", sector="Industry", variance="Low", government=True)
-#     print("Bond Info:", bond1.get_info())
+    risk1 = s1.calculate_risk()
+    risk2 = s2.calculate_risk()
 
-#     bond2 = Bond(name="Corporate Bond", sector="Finance", variance="High", government=False)
-#     print("Bond Info:", bond2.get_info())
+    print(f"Risk of Apple (High, Technology): {risk1} (Expected: 12)")
+    print(f"Risk of Teva (Low, Health): {risk2} (Expected: 4)")
 
-# def test_portfolio():
-#     print("\n--- Test: Portfolio ---")
-#     portfolio = Portfolio()
-#     portfolio.add_security(Stock(name="Tech Stock", sector="Technology", variance="High"))
-#     portfolio.add_security(Bond(name="Government Bond", sector="Industry", variance="Low"))
-#     portfolio.add_security(Stock(name="Real Estate Stock", sector="Real Estate", variance="Low"))
-    
-#     portfolio.display_portfolio()
-#     print("Total Portfolio Risk:", portfolio.calculate_total_risk())
-
-# if __name__ == "__main__":
-#     test_stock()
-#     test_bond()
-#     test_portfolio()
-
-# טסט חדש 13.03
+    assert risk1 == 12, "❌ Error in Apple Stock Risk Calculation"
+    assert risk2 == 4, "❌ Error in Teva Stock Risk Calculation"
+    print("✅ Stock risk tests passed.")
 
 
+def test_bond_risk():
+    print("\n🧪 Testing Bond Risk Calculation:")
 
+    b1 = Bond("GovBond", "Finance", "Low", "government")
+    b2 = Bond("CorpBond", "Industry", "High", "corporate")
 
+    risk1 = b1.calculate_risk()
+    risk2 = b2.calculate_risk()
 
-from dbmodel import dbmodel
-from securitiesmodel import Portfolio
+    print(f"Risk of GovBond (Low, Finance): {risk1} (Expected: 1.5)")
+    print(f"Risk of CorpBond (High, Industry): {risk2} (Expected: 0.6)")
 
-def test_portfolio():
-    db = dbmodel()
-    port = Portfolio(db)
+    assert math.isclose(risk1, 1.5, rel_tol=1e-9), "❌ Error in GovBond Risk Calculation"
+    assert math.isclose(risk2, 0.6, rel_tol=1e-9), "❌ Error in CorpBond Risk Calculation"
+    print("✅ Bond risk tests passed.")
 
-    print("\n--- Current Portfolio ---")
-    port.display_portfolio()
-
-    total_risk = port.calculate_total_risk()
-    print(f"Total Portfolio Risk: {total_risk:.2f}")
 
 if __name__ == "__main__":
-    test_portfolio()
+    test_stock_risk()
+    test_bond_risk()
+    print("\n🎉 All Securities Risk Model Tests Passed Successfully!")
