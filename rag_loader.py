@@ -61,3 +61,4 @@ for idx, text in enumerate(knowledge_texts):
     )
 
 print("Successfully added texts to Chroma!")
+
