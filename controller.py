@@ -121,3 +121,12 @@ class controller:
 
         return total_risk
 
+    def get_individual_risk(self, security_dict):
+        """מחזירה את סיכון הנייר ע"פ הנתונים שלו כפי שמופיעים בתיק"""
+        if security_dict['type'] == 'stock':
+            security = Stock(security_dict['name'], security_dict['sector'], security_dict['variance'], security_dict['subtype'])
+        elif security_dict['type'] == 'bond':
+            security = Bond(security_dict['name'], security_dict['sector'], security_dict['variance'], security_dict['subtype'])
+        else:
+            return 0  # אם זה לא מניה או אג"ח, מחזירים 0
+        return security.calculate_risk()

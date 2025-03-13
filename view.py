@@ -167,33 +167,6 @@ class view:
         print(Fore.GREEN + message if success else Fore.RED + message)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
-    # def sell(self):
-    #     print(Fore.YELLOW + "\n📋 Your Portfolio:" + Style.RESET_ALL)
-    #     portfolio = self.controller.get_portfolio_data()
-
-    #     if not portfolio:
-    #         print(Fore.RED + "Your portfolio is empty." + Style.RESET_ALL)
-    #         return
-
-    #     portfolio_list = list(portfolio.values())
-    #     for idx, sec in enumerate(portfolio_list, start=1):
-    #         print(Fore.LIGHTYELLOW_EX + f"{idx}. {sec['name']} (Amount: {sec['ammont']}, Base Value: {sec['basevalue']})" + Style.RESET_ALL)
-
-    #     try:
-    #         choice = int(input("\nChoose security number to sell: ")) - 1
-    #         amount = int(input("Enter amount to sell: "))
-    #         if choice < 0 or choice >= len(portfolio_list):
-    #             print(Fore.RED + "Invalid security choice." + Style.RESET_ALL)
-    #             return
-    #     except ValueError:
-    #         print(Fore.RED + "Invalid input." + Style.RESET_ALL)
-    #         return
-
-    #     name = portfolio_list[choice]['name']
-    #     success, message = self.controller.sell(name, amount)
-    #     print(Fore.GREEN + message if success else Fore.RED + message + Style.RESET_ALL)
-    #     input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
-
 # פונקציית SELL חדשה
     def sell(self):
         print(Fore.BLUE + "\n📋 Your Portfolio:" + Style.RESET_ALL)
@@ -258,24 +231,58 @@ class view:
         self.controller.get_advice(question)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
-    def show_portfolio(self):
-        portfolio = self.controller.get_portfolio_data()
+    # def show_portfolio(self):
+    #     portfolio = self.controller.get_portfolio_data()
 
-        if not portfolio:
+    #     if not portfolio:
+    #         print(Fore.RED + "Your portfolio is empty." + Style.RESET_ALL)
+    #         return
+
+    #     print(Fore.YELLOW + "\nYour Portfolio (Table):" + Style.RESET_ALL)
+    #     table = [[sec['name'], sec['ammont'], sec['basevalue']] for sec in portfolio.values()]
+    #     print(tabulate(table, headers=["Name", "Amount", "Base Value"], tablefmt="pretty"))
+
+    #     total_risk = self.controller.get_total_risk()
+    #     print(Fore.YELLOW + f"\nTotal Portfolio Risk: {total_risk:.2f}" + Style.RESET_ALL)
+
+    #     show_graph = input("\nDo you want to see a graph? (yes/no): ").lower()
+    #     if show_graph == 'yes':
+    #         self.display_graph(portfolio)
+    #     input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
+
+# new show_portfolio func
+    def show_portfolio(self):
+        data = self.controller.get_portfolio_data()
+        if not data:
             print(Fore.RED + "Your portfolio is empty." + Style.RESET_ALL)
             return
 
-        print(Fore.YELLOW + "\nYour Portfolio (Table):" + Style.RESET_ALL)
-        table = [[sec['name'], sec['ammont'], sec['basevalue']] for sec in portfolio.values()]
-        print(tabulate(table, headers=["Name", "Amount", "Base Value"], tablefmt="pretty"))
+        # הכנת הטבלה
+        table = []
+        for sec in data.values():
+            risk = self.controller.get_individual_risk(sec)  # סיכון אישי
+            table.append([
+                sec['name'],
+                sec['ammont'],
+                sec['basevalue'],
+                f"{risk:.2f}"
+            ])
 
+        # הדפסת הטבלה
+        print(Fore.YELLOW + "\nYour Portfolio (Table):" + Style.RESET_ALL)
+        print(tabulate(table, headers=["Name", "Amount", "Base Value", "Risk"], tablefmt="pretty"))
+
+        # סיכון כללי לתיק
         total_risk = self.controller.get_total_risk()
         print(Fore.YELLOW + f"\nTotal Portfolio Risk: {total_risk:.2f}" + Style.RESET_ALL)
 
+        # שאלת גרף (נשאיר למי שרוצה)
         show_graph = input("\nDo you want to see a graph? (yes/no): ").lower()
         if show_graph == 'yes':
-            self.display_graph(portfolio)
+            self.display_graph(data)
+
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
+
 
     def display_graph(self, portfolio):
         names = [sec['name'] for sec in portfolio.values()]
