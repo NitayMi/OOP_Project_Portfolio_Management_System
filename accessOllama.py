@@ -1,7 +1,7 @@
 import ollama
 
 def getanswer( question):   
-    response = ollama.generate(model='deepseek-r1:latest', prompt=question)
+    response = ollama.generate(model='deepseek-r1:7b', prompt=question)
     return response['response']
     
     
