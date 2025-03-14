@@ -8,10 +8,11 @@ from PyPDF2 import PdfReader
 from docx import Document  # לטיפול ב-Word
 
 # הגדרת Chroma
-client = chromadb.PersistentClient(path="my_chroma_db")
+persist_directory = "db"  # שים לב! צריך להיות תואם למה שאתה משתמש בקובץ הבדיקה
+client = chromadb.PersistentClient(path=persist_directory)
 collection = client.get_or_create_collection(name="my_collection")
 
-# הגדרת Embedding (תעדכן פה למה שאתה באמת משתמש - לדוג' Instructor או SentenceTransformer)
+# הגדרת Embedding (תעדכן לפי הצורך)
 embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
 # פונקציה לקרוא PDF
@@ -49,6 +50,8 @@ text_splitter = RecursiveCharacterTextSplitter(
 )
 knowledge_texts = text_splitter.split_text(full_text)
 
+print(f"Number of chunks created: {len(knowledge_texts)}")  # בדיקה
+
 # הוספת הטקסטים והוקטורים ל-ChromaDB
 for idx, text in enumerate(knowledge_texts):
     embedding = embedding_func(text)  # מחזיר embedding רגיל
@@ -61,4 +64,4 @@ for idx, text in enumerate(knowledge_texts):
     )
 
 print("Successfully added texts to Chroma!")
-
+print("You can now use the ChromaDB for similarity search.")

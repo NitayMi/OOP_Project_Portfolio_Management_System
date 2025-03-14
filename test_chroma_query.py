@@ -1,20 +1,21 @@
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import SentenceTransformerEmbeddings
+from chromadb.utils import embedding_functions
+from chromadb import PersistentClient
 
-# 1. Load the existing database
-persist_directory = 'db'  # same path used in rag_loader.py
-embedding = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+persist_directory = "db"
+client = PersistentClient(path=persist_directory)
+collection = client.get_or_create_collection(name="my_collection")
 
-# 2. Check how many documents are in the database
-print("Number of documents in the database:", vectordb._collection.count())
+embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
-# 3. Test - search for a sample question
-query = "What is a class in object-oriented programming?"
-results = vectordb.similarity_search(query, k=3)
+query = "What is a class in Python?"  # Change to the question you want
+query_embedding = embedding_func(query)
 
-# 4. Print the results
-print("\nSearch results:")
-for i, res in enumerate(results, 1):
-    print(f"\nResult {i}:")
-    print(res.page_content)
+results = collection.query(
+    query_embeddings=[query_embedding],
+    n_results=5,
+    include=["documents"]
+)
+
+print("Search results:")
+for doc in results['documents'][0]:
+    print(doc)
