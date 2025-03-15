@@ -84,7 +84,8 @@ class PortfolioGUI:
             return
 
         # מכירה דרך קונטרולר
-        success, message = self.controller.sell(sec.name, sec.sector, sec.subtype, amount)
+        success, message = self.controller.sell(sec.name, amount)
+
         if success:
             messagebox.showinfo("Success", message)
         else:
