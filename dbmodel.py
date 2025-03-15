@@ -169,16 +169,14 @@ class dbmodel:
             SecurityData(
                 row[0],  # id
                 row[1],  # name
-                row[6],  # basevalue (שדה מס' 6)
-                0,       # ammont - כי ברשימת available אין כמות
+                row[6],  # basevalue (תמיד בעמודה 6)
+                0,       # ammont (זמין לקנייה, לא בבעלות)
                 row[2],  # sector
                 row[3],  # variance
-                row[4],  # type -> security_type
+                row[4],  # security_type (type)
                 row[5]   # subtype
             ) for row in rows
         ]
-
-
 
     def insert_or_update(self, name, sector, variance, security_type, subtype, basevalue, amount):
         # קודם בודקים אם נייר הערך כבר קיים
@@ -213,4 +211,3 @@ class dbmodel:
         self.cursor.execute("SELECT * FROM investments")
         rows = self.cursor.fetchall()
         return [SecurityData(*row) for row in rows] if rows else []
-

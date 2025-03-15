@@ -144,9 +144,11 @@ class view:
             print(Fore.RED + "❌ No available securities to buy." + Style.RESET_ALL)
             return
 
+        # הצגת ניירות ערך
         for idx, sec in enumerate(securities, start=1):
             print(Fore.YELLOW + f"{idx}. {sec.name} ({sec.security_type}, {sec.subtype}, {sec.sector}, Variance: {sec.variance}, Price: {sec.basevalue})" + Style.RESET_ALL)
 
+        # בחירת נייר ערך
         try:
             choice = int(input("\nChoose security number to buy: ")) - 1
             if choice < 0 or choice >= len(securities):
@@ -156,6 +158,7 @@ class view:
             print(Fore.RED + "❌ Invalid input." + Style.RESET_ALL)
             return
 
+        # בחירת כמות
         try:
             amount = int(input("Enter amount to buy: "))
             if amount <= 0:
@@ -166,77 +169,70 @@ class view:
             return
 
         sec = securities[choice]
-        subtype = sec.subtype if sec.subtype else "N/A"
 
-        projected_risk = self.controller.calculate_projected_risk(
-            name=sec.name, sector=sec.sector, variance=sec.variance,
-            security_type=sec.security_type, subtype=subtype,
-            amount=amount
-        )
-
+        # ביצוע קנייה
         success, message = self.controller.buy(
-            name=sec.name, sector=sec.sector, variance=sec.variance,
-            security_type=sec.security_type, subtype=subtype,
-            amount=amount, basevalue=sec.basevalue
+            name=sec.name,
+            sector=sec.sector,
+            variance=sec.variance,
+            security_type=sec.security_type,
+            subtype=sec.subtype,
+            amount=amount,
+            basevalue=sec.basevalue
         )
 
+        # תוצאה למשתמש
         print(Fore.GREEN + message + Style.RESET_ALL if success else Fore.RED + message + Style.RESET_ALL)
-
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
-
-
 
     def sell(self):
         print(Fore.BLUE + "\n📋 Your Portfolio:" + Style.RESET_ALL)
-        portfolio_data = self.controller.get_portfolio_data()
+        portfolio = self.controller.get_portfolio_data()
 
-        if not portfolio_data:
-            print(Fore.RED + "Your portfolio is empty." + Style.RESET_ALL)
+        if not portfolio:
+            print(Fore.RED + "❌ Your portfolio is empty." + Style.RESET_ALL)
             return
 
-        securities = list(portfolio_data)
-        for idx, sec in enumerate(securities, start=1):
-            risk = self.controller.calculate_projected_risk(
-                name=sec.name,
-                sector=sec.sector,
-                variance=sec.variance,
-                security_type=sec.security_type,
-                subtype=sec.subtype,
-                amount=sec.ammont
-            )
-            print(Fore.YELLOW + f"{idx}. {sec.name} | Amount: {sec.ammont} | Base Value: {sec.basevalue} | Risk: {risk:.2f}" + Style.RESET_ALL)
+        # הצגת התיק
+        for idx, sec in enumerate(portfolio, start=1):
+            print(Fore.YELLOW + f"{idx}. {sec.name} | Amount: {sec.ammont} | Base Value: {sec.basevalue}" + Style.RESET_ALL)
 
+        # בחירת נייר למכירה
         try:
             choice = int(input("\nChoose security number to sell: ")) - 1
-            if choice < 0 or choice >= len(securities):
+            if choice < 0 or choice >= len(portfolio):
                 print(Fore.RED + "❌ Invalid choice." + Style.RESET_ALL)
                 return
         except ValueError:
             print(Fore.RED + "❌ Invalid input." + Style.RESET_ALL)
             return
 
-        selected_security = securities[choice]
-        name_to_sell = selected_security.name
-        available_amount = selected_security.ammont
+        sec = portfolio[choice]
 
-        print(Fore.CYAN + f"\nYou chose to sell '{name_to_sell}'. You own {available_amount} units." + Style.RESET_ALL)
-
+        # כמות למכירה
+        print(Fore.YELLOW + f"\nYou chose to sell '{sec.name}'. You own {sec.ammont} units." + Style.RESET_ALL)
         try:
-            amount_to_sell = int(input(f"Enter amount to sell (Available: {available_amount}): "))
-            if amount_to_sell <= 0:
+            amount = int(input(f"Enter amount to sell (Available: {sec.ammont}): "))
+            if amount <= 0:
                 print(Fore.RED + "❌ Amount must be positive." + Style.RESET_ALL)
                 return
         except ValueError:
-            print(Fore.RED + "❌ Invalid amount." + Style.RESET_ALL)
+            print(Fore.RED + "❌ Invalid input." + Style.RESET_ALL)
             return
 
-        if amount_to_sell > available_amount:
-            print(Fore.RED + f"❌ Cannot sell more than available. You own {available_amount} units." + Style.RESET_ALL)
-            return
+        # ביצוע מכירה
+        success, message = self.controller.sell(
+            name=sec.name,
+            security_type=sec.security_type,
+            sector=sec.sector,
+            subtype=sec.subtype,
+            amount=amount
+        )
 
-        success, message = self.controller.sell(name_to_sell, amount_to_sell)
-        print(Fore.GREEN + message if success else Fore.RED + message + Style.RESET_ALL)
+        # תוצאה למשתמש
+        print(Fore.GREEN + message + Style.RESET_ALL if success else Fore.RED + message + Style.RESET_ALL)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
+
 
     def get_advice(self):
         question = input("Enter your question for AI Advisor: ")
@@ -274,6 +270,11 @@ class view:
 
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
+        graph_choice = input("Do you want to see a graph? (yes/no): ").strip().lower()
+        if graph_choice == "yes":
+            self.show_portfolio_graph()
+
+
     def display_graph(self, portfolio):
         names = [sec.name for sec in portfolio]
         amounts = [sec.ammont for sec in portfolio]
@@ -281,4 +282,33 @@ class view:
         plt.figure(figsize=(7, 7))
         plt.pie(amounts, labels=names, autopct='%1.1f%%', startangle=140)
         plt.title('Portfolio Distribution')
+        plt.show()
+
+    def show_portfolio_graph(self):
+        portfolio = self.controller.get_portfolio_data()
+        if not portfolio:
+            print("❌ Your portfolio is empty.")
+            return
+
+        # סיכום נתוני התיק
+        labels = [sec.name for sec in portfolio]
+        sizes = [sec.basevalue * sec.ammont for sec in portfolio]
+
+        # גרף פאי לפי שווי השקעה
+        plt.figure(figsize=(8, 8))
+        plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
+        plt.title('Portfolio Distribution by Value')
+        plt.axis('equal')  # עיגול
+        plt.show()
+
+        # גרף עמודות לפי סקטור
+        sectors = {}
+        for sec in portfolio:
+            sectors[sec.sector] = sectors.get(sec.sector, 0) + (sec.basevalue * sec.ammont)
+
+        plt.figure(figsize=(10, 6))
+        plt.bar(sectors.keys(), sectors.values())
+        plt.title('Portfolio Distribution by Sector')
+        plt.xlabel('Sector')
+        plt.ylabel('Total Value')
         plt.show()
