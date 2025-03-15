@@ -19,9 +19,7 @@ class controller:
         return self.dbmodel.get_available_securities()
 
     def buy(self, name, sector, variance, security_type, subtype, amount, basevalue):
-        """
-        מבצע קניית נייר ערך, כולל בדיקת סיכון והתאמה לרמת הסיכון של התיק.
-        """
+        # מבצע קניית נייר ערך, כולל בדיקת סיכון והתאמה לרמת הסיכון של התיק.
 
         # יצירת אובייקט SecurityData
         security_data = SecurityData(
@@ -37,7 +35,6 @@ class controller:
 
         # חישוב סיכון נוכחי
         current_risk = self.portfolio.calculate_total_risk()
-
         # חישוב סיכון חזוי כולל הנייר החדש
         projected_risk = self.portfolio.calculate_projected_risk_with_new_security(security_data, amount)
 
@@ -64,12 +61,8 @@ class controller:
 
         return True, f"✅ '{name}' bought successfully! Total portfolio risk: {projected_risk:.2f}"
 
-
-
     def sell(self, name, security_type, sector, subtype, amount):
-        """
-        מבצע מכירת נייר ערך, כולל בדיקת כמות קיימת.
-        """
+        # מבצע מכירת נייר ערך, כולל בדיקת כמות קיימת.
 
         # שליפת התיק הקיים
         portfolio = self.dbmodel.get_portfolio_data()
