@@ -1,153 +1,209 @@
+
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
+from ttkbootstrap import Style
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+import threading
 from controller import controller
 
 
 class PortfolioApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.style = Style(theme='flatly')  # Light modern theme
         self.title("Portfolio Management System")
-        self.geometry("900x600")
+        self.geometry("1200x800")
+        self.option_add("*Font", "Sans 12")  # Set modern readable font
 
-        # שאלת רמת סיכון בהתחלה
-        self.risk_level = simpledialog.askstring("Risk Level", "Enter your risk level (Low, Medium, High):", initialvalue="Medium")
-        if self.risk_level not in ["Low", "Medium", "High"]:
-            messagebox.showerror("Error", "Invalid risk level! Defaulting to 'Medium'.")
-            self.risk_level = "Medium"
+        self.ask_risk_level()
 
+    def ask_risk_level(self):
+        popup = tk.Toplevel(self)
+        popup.title("Select Risk Level")
+        popup.geometry("300x150")
+        tk.Label(popup, text="Select your risk level:", font="Sans 14").pack(pady=10)
+
+        def set_risk(level):
+            self.risk_level = level
+            popup.destroy()
+            self.start_main_ui()
+
+        ttk.Button(popup, text="Low", command=lambda: set_risk("Low")).pack(pady=5, fill='x')
+        ttk.Button(popup, text="Medium", command=lambda: set_risk("Medium")).pack(pady=5, fill='x')
+        ttk.Button(popup, text="High", command=lambda: set_risk("High")).pack(pady=5, fill='x')
+
+    def start_main_ui(self):
         self.controller = controller(self.risk_level)
+        self.create_summary()
+        self.create_tabs()
+        self.refresh_all()
 
-        # טאבים
+    def create_summary(self):
+        self.summary_frame = ttk.Frame(self)
+        self.summary_frame.pack(fill='x', pady=10)
+
+        self.total_value_label = ttk.Label(self.summary_frame, text="Total Value: Calculating...")
+        self.total_value_label.pack(side='left', padx=10)
+
+        self.total_risk_label = ttk.Label(self.summary_frame, text="Total Risk: Calculating...")
+        self.total_risk_label.pack(side='left', padx=10)
+
+        ttk.Button(self.summary_frame, text="Ask AI Advisor", command=self.ask_ai_advisor).pack(side='right', padx=10)
+
+    def create_tabs(self):
         self.tab_control = ttk.Notebook(self)
         self.portfolio_tab = ttk.Frame(self.tab_control)
         self.buy_tab = ttk.Frame(self.tab_control)
-        self.sell_tab = ttk.Frame(self.tab_control)
+        self.graph_tab = ttk.Frame(self.tab_control)
 
         self.tab_control.add(self.portfolio_tab, text='Portfolio')
-        self.tab_control.add(self.buy_tab, text='Buy')
-        self.tab_control.add(self.sell_tab, text='Sell')
+        self.tab_control.add(self.buy_tab, text='Buy Securities')
+        self.tab_control.add(self.graph_tab, text='Portfolio Graphs')
         self.tab_control.pack(expand=1, fill='both')
 
         self.create_portfolio_tab()
         self.create_buy_tab()
-        self.create_sell_tab()
+        self.create_graph_tab()
 
-    # ========================= Portfolio Tab ===========================
     def create_portfolio_tab(self):
-        self.tree = ttk.Treeview(self.portfolio_tab, columns=("Name", "Base Value", "Amount", "Sector", "Type"), show='headings')
+        self.tree = ttk.Treeview(self.portfolio_tab, columns=("Name", "Amount", "Base Value", "Sector", "Type", "Risk", "Value"), show='headings')
         for col in self.tree["columns"]:
             self.tree.heading(col, text=col)
         self.tree.pack(expand=True, fill='both')
+        self.tree.bind("<Double-1>", self.on_tree_double_click)
 
-        btn_refresh = ttk.Button(self.portfolio_tab, text="Refresh Portfolio", command=self.load_portfolio)
-        btn_refresh.pack(pady=5)
+    def create_buy_tab(self):
+        self.buy_tree = ttk.Treeview(self.buy_tab, columns=("Name", "Sector", "Risk", "Base Value", "Type"), show='headings')
+        for col in self.buy_tree["columns"]:
+            self.buy_tree.heading(col, text=col)
+        self.buy_tree.pack(expand=True, fill='both')
+        self.buy_tree.bind("<Double-1>", self.on_buy_double_click)
 
-        btn_graph = ttk.Button(self.portfolio_tab, text="Show Graph", command=self.show_graph)
-        btn_graph.pack(pady=5)
+    def create_graph_tab(self):
+        self.graph_canvas = None
 
-        btn_risk = ttk.Button(self.portfolio_tab, text="Show Total Risk", command=self.show_total_risk)
-        btn_risk.pack(pady=5)
+    def refresh_all(self):
+        self.load_portfolio()
+        self.load_buy_options()
+        self.update_summary()
+        self.refresh_graph()
 
     def load_portfolio(self):
         self.tree.delete(*self.tree.get_children())
         self.portfolio_securities = self.controller.get_portfolio_data()
+        self.total_value = 0
         for item in self.portfolio_securities:
-            self.tree.insert('', 'end', values=(item.name, item.basevalue, item.ammont, item.sector, item.security_type))
+            individual_risk = self.controller.get_individual_risk(item)
+            value = item.basevalue * item.ammont
+            self.total_value += value
+            self.tree.insert('', 'end', values=(item.name, item.ammont, item.basevalue, item.sector, item.security_type, f"{individual_risk:.2f}", f"{value:.2f}"))
 
-    def show_graph(self):
-        if not hasattr(self, 'portfolio_securities'):
-            self.load_portfolio()
+    def load_buy_options(self):
+        self.buy_tree.delete(*self.buy_tree.get_children())
+        self.available_securities = self.controller.get_available_securities()
+        for sec in self.available_securities:
+            self.buy_tree.insert('', 'end', values=(sec.name, sec.sector, sec.variance, sec.basevalue, sec.security_type))
+
+    def update_summary(self):
+        risk = self.controller.get_total_risk()
+        self.total_risk_label.config(text=f"Total Risk: {risk:.2f}")
+        self.total_value_label.config(text=f"Total Value: {self.total_value:.2f}")
+
+    def refresh_graph(self):
+        if self.graph_canvas:
+            self.graph_canvas.get_tk_widget().destroy()
+
         names = [item.name for item in self.portfolio_securities]
         amounts = [item.ammont for item in self.portfolio_securities]
 
-        fig, ax = plt.subplots()
-        ax.pie(amounts, labels=names, autopct='%1.1f%%')
-        ax.set_title('Portfolio Distribution')
+        fig, axs = plt.subplots(1, 2, figsize=(14, 6))
+        axs[0].pie(amounts, labels=names, autopct='%1.1f%%')
+        axs[0].set_title('Pie Chart')
 
-        canvas = FigureCanvasTkAgg(fig, master=self.portfolio_tab)
-        canvas.draw()
-        canvas.get_tk_widget().pack(expand=True, fill='both')
+        axs[1].bar(names, amounts)
+        axs[1].set_title('Bar Chart')
 
-    def show_total_risk(self):
-        risk = self.controller.get_total_risk()
-        messagebox.showinfo("Total Risk", f"Total portfolio risk: {risk:.2f}")
+        self.graph_canvas = FigureCanvasTkAgg(fig, master=self.graph_tab)
+        self.graph_canvas.draw()
+        self.graph_canvas.get_tk_widget().pack(expand=True, fill='both')
 
-    # ========================= Buy Tab with Buttons ===========================
-    def create_buy_tab(self):
-        self.available_securities = self.controller.get_available_securities()
-        self.buy_selected_security = tk.StringVar()
-        securities_names = [sec.name for sec in self.available_securities]
-        dropdown = ttk.Combobox(self.buy_tab, textvariable=self.buy_selected_security, values=securities_names, state='readonly')
-        dropdown.pack(pady=10, fill='x')
+    def on_tree_double_click(self, event):
+        selected_item = self.tree.selection()[0]
+        name = self.tree.item(selected_item, "values")[0]
+        self.open_sell_popup(name)
 
-        # Amount Entry
-        row_amount = ttk.Frame(self.buy_tab)
-        label_amount = ttk.Label(row_amount, text="Amount to Buy: ")
-        self.buy_amount_entry = ttk.Entry(row_amount)
-        row_amount.pack(fill='x', pady=5)
-        label_amount.pack(side='left')
-        self.buy_amount_entry.pack(side='right', expand=True, fill='x')
+    def on_buy_double_click(self, event):
+        selected_item = self.buy_tree.selection()[0]
+        name = self.buy_tree.item(selected_item, "values")[0]
+        self.open_buy_popup(name)
 
-        # Button to Buy
-        btn_buy = ttk.Button(self.buy_tab, text="Buy Security", command=self.buy_security)
-        btn_buy.pack(pady=20)
+    def open_sell_popup(self, name):
+        popup = tk.Toplevel(self)
+        popup.title(f"Sell {name}")
+        popup.geometry("300x250")
 
-    def buy_security(self):
-        try:
-            selected_name = self.buy_selected_security.get()
-            amount = int(self.buy_amount_entry.get())
+        # Retrieve the security from portfolio to get the amount
+        sec = next((s for s in self.portfolio_securities if s.name == name), None)
 
-            sec = next((s for s in self.available_securities if s.name == selected_name), None)
-            if not sec:
-                messagebox.showerror("Error", "Security not found.")
-                return
+        tk.Label(popup, text=f"Sell {name}", font="Sans 14").pack(pady=10)
+        tk.Label(popup, text=f"Amount available: {sec.ammont}").pack(pady=5)
 
-            success, message = self.controller.buy(
-                sec.name, sec.sector, sec.variance, sec.security_type,
-                sec.subtype, amount, sec.basevalue
-            )
+        tk.Label(popup, text="Amount to Sell:").pack()
+        amount_entry = ttk.Entry(popup)
+        amount_entry.pack(pady=5)
+
+        def confirm_sell():
+            amount = int(amount_entry.get())
+            success, message = self.controller.sell(sec.name, sec.security_type, sec.sector, sec.subtype, amount)
             messagebox.showinfo("Result", message)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+            popup.destroy()
+            self.refresh_all()
 
-    # ========================= Sell Tab with Buttons ===========================
-    def create_sell_tab(self):
-        self.load_portfolio()  # Load portfolio when opening the tab
-        self.sell_selected_security = tk.StringVar()
-        securities_names = [sec.name for sec in self.portfolio_securities]
-        dropdown = ttk.Combobox(self.sell_tab, textvariable=self.sell_selected_security, values=securities_names, state='readonly')
-        dropdown.pack(pady=10, fill='x')
-
-        # Amount Entry
-        row_amount = ttk.Frame(self.sell_tab)
-        label_amount = ttk.Label(row_amount, text="Amount to Sell: ")
-        self.sell_amount_entry = ttk.Entry(row_amount)
-        row_amount.pack(fill='x', pady=5)
-        label_amount.pack(side='left')
-        self.sell_amount_entry.pack(side='right', expand=True, fill='x')
-
-        # Button to Sell
-        btn_sell = ttk.Button(self.sell_tab, text="Sell Security", command=self.sell_security)
-        btn_sell.pack(pady=20)
-
-    def sell_security(self):
-        try:
-            selected_name = self.sell_selected_security.get()
-            amount = int(self.sell_amount_entry.get())
-
-            sec = next((s for s in self.portfolio_securities if s.name == selected_name), None)
-            if not sec:
-                messagebox.showerror("Error", "Security not found in portfolio.")
-                return
-
-            success, message = self.controller.sell(
-                sec.name, sec.security_type, sec.sector, sec.subtype, amount
-            )
+        def sell_all():
+            amount = sec.ammont
+            success, message = self.controller.sell(sec.name, sec.security_type, sec.sector, sec.subtype, amount)
             messagebox.showinfo("Result", message)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+            popup.destroy()
+            self.refresh_all()
+
+        ttk.Button(popup, text="Confirm Sell", command=confirm_sell).pack(pady=10, fill='x')
+        ttk.Button(popup, text="Sell All", command=sell_all).pack(pady=5, fill='x')  # כפתור חדש למכירה מלאה
+
+
+    def open_buy_popup(self, name):
+        popup = tk.Toplevel(self)
+        popup.title(f"Buy {name}")
+        popup.geometry("300x200")
+
+        tk.Label(popup, text=f"Buy {name}").pack(pady=10)
+        tk.Label(popup, text="Amount to Buy:").pack()
+        amount_entry = ttk.Entry(popup)
+        amount_entry.pack(pady=5)
+
+        def confirm_buy():
+            amount = int(amount_entry.get())
+            sec = next((s for s in self.available_securities if s.name == name), None)
+            if sec:
+                success, message = self.controller.buy(sec.name, sec.sector, sec.variance, sec.security_type, sec.subtype, amount, sec.basevalue)
+                messagebox.showinfo("Result", message)
+                popup.destroy()
+                self.refresh_all()
+
+        ttk.Button(popup, text="Confirm Buy", command=confirm_buy).pack(pady=10)
+
+    def ask_ai_advisor(self):
+        question = simpledialog.askstring("AI Advisor", "What would you like to ask?")
+        if question:
+            threading.Thread(target=self.process_ai_advice, args=(question,)).start()
+
+    def process_ai_advice(self, question):
+        answer = self.controller.get_advice(question)
+        popup = tk.Toplevel(self)
+        popup.title("AI Advisor Response")
+        text = tk.Text(popup, wrap='word')
+        text.insert('1.0', answer)
+        text.pack(expand=True, fill='both')
 
 
 if __name__ == "__main__":
