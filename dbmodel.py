@@ -49,6 +49,21 @@
 # קוד חדש 12.03.25
 import sqlite3
 
+class SecurityData:
+    def __init__(self, id, name, basevalue, ammont, sector, variance, security_type, subtype='N/A'):
+        self.id = id
+        self.name = name
+        self.basevalue = basevalue
+        self.ammont = ammont
+        self.sector = sector
+        self.variance = variance
+        self.security_type = security_type
+        self.subtype = subtype
+
+    def __str__(self):
+        return f"{self.name} ({self.security_type}) - {self.ammont} units @ {self.basevalue}"
+
+
 class dbmodel:
     def __init__(self):
         print("DB connect")
@@ -124,18 +139,7 @@ class dbmodel:
         WHERE name=? AND type=? AND sector=? AND subtype=?
         ''', (name, type_, sector, subtype))
         row = self.cursor.fetchone()
-        if row:
-            return {
-                'id': row[0],
-                'name': row[1],
-                'basevalue': row[2],
-                'ammont': row[3],
-                'sector': row[4],
-                'variance': row[5],
-                'type': row[6],
-                'subtype': row[7]
-            }
-        return None
+        return SecurityData(*row) if row else None
 
     def getdata(self):
         self.cursor.execute('SELECT * FROM investments')
@@ -159,10 +163,22 @@ class dbmodel:
         self.conn.commit()
 
     def get_available_securities(self):
-        self.cursor.execute('SELECT * FROM available_securities')
+        self.cursor.execute("SELECT * FROM available_securities")
         rows = self.cursor.fetchall()
-        columns = [column[0] for column in self.cursor.description]
-        return [dict(zip(columns, row)) for row in rows]
+        return [
+            SecurityData(
+                row[0],  # id
+                row[1],  # name
+                row[6],  # basevalue (שדה מס' 6)
+                0,       # ammont - כי ברשימת available אין כמות
+                row[2],  # sector
+                row[3],  # variance
+                row[4],  # type -> security_type
+                row[5]   # subtype
+            ) for row in rows
+        ]
+
+
 
     def insert_or_update(self, name, sector, variance, security_type, subtype, basevalue, amount):
         # קודם בודקים אם נייר הערך כבר קיים
@@ -192,3 +208,9 @@ class dbmodel:
 
         # שמירה
         self.conn.commit()
+
+    def get_portfolio_data(self):
+        self.cursor.execute("SELECT * FROM investments")
+        rows = self.cursor.fetchall()
+        return [SecurityData(*row) for row in rows] if rows else []
+

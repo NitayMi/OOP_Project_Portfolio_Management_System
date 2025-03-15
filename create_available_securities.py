@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS available_securities (
     sector TEXT NOT NULL,
     variance TEXT NOT NULL,
     type TEXT NOT NULL,      -- stock / bond
-    sub_type TEXT NOT NULL,  -- common / preferred / government / corporate
+    subtype TEXT NOT NULL,  -- common / preferred / government / corporate
     basevalue REAL NOT NULL  -- מחיר בסיס
 )
 ''')
@@ -36,7 +36,7 @@ securities = [
 
 # הכנסת הנתונים לטבלה
 cursor.executemany('''
-INSERT INTO available_securities (name, sector, variance, type, sub_type, basevalue)
+INSERT INTO available_securities (name, sector, variance, type, subtype, basevalue)
 VALUES (?, ?, ?, ?, ?, ?)
 ''', securities)
 

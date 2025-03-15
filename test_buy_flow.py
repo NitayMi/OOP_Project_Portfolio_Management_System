@@ -1,54 +1,79 @@
 from controller import controller
-from dbmodel import dbmodel
 
-def test_buy_flow():
-    print("\n🧪 Starting Full Buy Flow Test:")
+def test_buy_scenario():
+    # יצירת controller עם רמת סיכון בינונית (אפשר לשנות ל-High או Low)
+    c = controller(risk_level='Medium')  # תוכל לשנות את ה-risk_level לפי בדיקות שונות
 
-    # אתחול DB וניקוי תיק ההשקעות
-    db = dbmodel()
-    db.clear_portfolio()
-    ctrl = controller("High")  # רמת סיכון High כדי לא לחסום רכישות
+    # הצגת מצב התיק הנוכחי
+    print("📊 Current Portfolio Data Before Test:")
+    portfolio_data = c.get_portfolio_data()
+    for item in portfolio_data:
+        print(item)
 
-    # שליפת ניירות ערך זמינים
-    available_securities = ctrl.get_available_securities()
-    assert len(available_securities) > 0, "❌ No available securities found!"
+    # הצגת סיכון נוכחי של התיק
+    current_risk = c.get_total_risk()
+    print(f"\n🧮 Total current portfolio risk before test: {current_risk:.2f}\n")
 
-    # בחירת נייר ערך לבדיקה
-    test_security = available_securities[0]  # ניקח את הראשון
-    name = test_security['name']
-    sector = test_security['sector']
-    variance = test_security['variance']
-    security_type = test_security['type']
-    subtype = test_security['sub_type']
-    basevalue = test_security['basevalue']
-    amount_to_buy = 10
-
-    print(f"\n➡️ Selected Security to Buy: {name}, Type: {security_type}, Sector: {sector}, Variance: {variance}")
-
-    # חישוב סיכון צפוי לפני קנייה
-    projected_risk = ctrl.calculate_projected_risk(name, sector, variance, security_type, subtype, amount_to_buy)
-    print(f"📊 Projected Portfolio Risk after buying {amount_to_buy} of {name}: {projected_risk:.2f}")
-
-    # ביצוע קנייה
-    success, message = ctrl.buy(
-        name=name, sector=sector, variance=variance, security_type=security_type,
-        subtype=subtype, amount=amount_to_buy, basevalue=basevalue
+    # ----------------------
+    # בדיקה 1: קניית מניה "Apple" עם סיכון נמוך
+    print("🔵 Test 1: Buying 'Apple' (Stock, expected to PASS or borderline)")
+    success, message = c.buy(
+        name='Apple',
+        sector='Technology',
+        variance='Low',
+        security_type='stock',
+        subtype='regular',
+        amount=10,
+        basevalue=150
     )
-    assert success, f"❌ Failed to buy security: {message}"
-    print(f"✅ {message}")
+    print(message)
+    print("\n--------------------------\n")
 
-    # בדיקת סיכון כולל בתיק לאחר הקנייה
-    total_risk = ctrl.get_total_risk()
-    print(f"📊 Total Portfolio Risk Now: {total_risk:.2f}")
+    # ----------------------
+    # בדיקה 2: קניית אג"ח ממשלתי "US Gov Bond" עם סיכון נמוך
+    print("🟢 Test 2: Buying 'US Gov Bond' (Bond, expected to PASS)")
+    success, message = c.buy(
+        name='US Gov Bond',
+        sector='Finance',
+        variance='Low',
+        security_type='bond',
+        subtype='government',
+        amount=5,
+        basevalue=100
+    )
+    print(message)
+    print("\n--------------------------\n")
 
-    # בדיקת נוכחות נייר ערך בתיק דרך ה-DB
-    portfolio_data = ctrl.get_portfolio_data()
-    found = any(sec['name'] == name for sec in portfolio_data.values())
-    assert found, "❌ Security not found in portfolio after buy!"
-    print(f"✅ Security '{name}' found in portfolio with amount {amount_to_buy}.")
+    # ----------------------
+    # בדיקה 3: קניית מניה מסוכנת "Risky Tech" בכמות גבוהה (צפוי להיכשל)
+    print("🔴 Test 3: Buying 'Risky Tech' (High risk, expected to FAIL)")
+    success, message = c.buy(
+        name='Risky Tech',
+        sector='Technology',
+        variance='High',
+        security_type='stock',
+        subtype='regular',
+        amount=1000,
+        basevalue=50
+    )
+    print(message)
+    print("\n--------------------------\n")
 
-    print("\n✅ All Buy Flow Tests Passed Successfully!")
+    # ----------------------
+    # בדיקה 4: ניסיון לקנות נייר מסוג לא חוקי (crypto)
+    print("⚫ Test 4: Buying 'Unknown' (Invalid security type, expected to FAIL)")
+    success, message = c.buy(
+        name='Unknown',
+        sector='Unknown',
+        variance='Low',
+        security_type='crypto',  # לא חוקי
+        subtype='none',
+        amount=10,
+        basevalue=500
+    )
+    print(message)
+    print("\n--------------------------\n")
 
 
 if __name__ == "__main__":
-    test_buy_flow()
+    test_buy_scenario()

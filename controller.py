@@ -22,7 +22,8 @@
 
 
 # קוד חדש 13.02
-from dbmodel import dbmodel
+from dbmodel import dbmodel, SecurityData
+from securitiesmodel import Stock, Bond
 from ollamamodel import ollamamodel
 from securitiesmodel import Stock, Bond, Portfolio
 
@@ -33,8 +34,14 @@ class controller:
         self.ollamamodel = ollamamodel()  # AI Advisor
         self.risk_level = risk_level  # Risk preference
 
+    def get_available_securities(self):
+        return self.dbmodel.get_available_securities()
+
     def buy(self, name, sector, variance, security_type, subtype, amount, basevalue):
-        # Create security object for risk calculation
+        """
+        מבצע קניית נייר ערך, כולל בדיקת סיכון והתאמה לרמת הסיכון של התיק.
+        """
+        # יצירת אובייקט נייר ערך בהתאם לסוג
         if security_type == 'stock':
             security = Stock(name, sector, variance, subtype)
         elif security_type == 'bond':
@@ -42,29 +49,62 @@ class controller:
         else:
             return False, "Invalid security type."
 
-        # Risk check
-        temp_risk = self._calculate_risk_with_new_security(security, amount)
-        if not self.is_risk_acceptable(temp_risk):
-            return False, f"Cannot buy '{name}'. Total risk {temp_risk:.2f} exceeds acceptable range for '{self.risk_level}' risk level."
+        # חישוב סיכון נוכחי של התיק
+        current_risk = self.portfolio.calculate_total_risk()
+        # חישוב סיכון צפוי אחרי הקנייה
+        projected_risk = self._calculate_risk_with_new_security(security, amount)
 
-        # Insert or update in DB
+        # ✅ הצגת סיכון למשתמש
+        print(f"\n🧮 Current portfolio risk: {current_risk:.2f}")
+        print(f"📈 Projected portfolio risk after purchase: {projected_risk:.2f}")
+
+        # ✅ לוגיקה נכונה:
+        # 1. אם התיק כבר חורג מהסיכון, נאפשר קנייה שמקטינה או לא מחמירה את הסיכון.
+        _, max_risk = self._get_risk_range_for_level()  # שליפת מקסימום רמת סיכון
+        if current_risk > max_risk:
+            if projected_risk > current_risk:
+                return False, f"⚠️ Cannot buy '{name}'. Portfolio already exceeds risk limit ({current_risk:.2f}), and this purchase would increase it to {projected_risk:.2f}."
+           
+        # 2. אם התיק עומד בדרישות, לבדוק שהקנייה לא תגרום לחריגה.
+        else:
+            if not self.is_risk_acceptable(projected_risk):
+                return False, f"⚠️ Cannot buy '{name}'. Total projected risk {projected_risk:.2f} exceeds acceptable range for '{self.risk_level}' risk level."
+
+        # ✅ אם עובר את הבדיקות, ממשיכים לקנייה והכנסת/עדכון במסד הנתונים
         self.dbmodel.insert_or_update(name, sector, variance, security_type, subtype, basevalue, amount)
-        return True, f"'{name}' bought successfully! Total portfolio risk: {temp_risk:.2f}"
+
+        # החזרת הודעת הצלחה
+        return True, f"✅ '{name}' bought successfully! Total portfolio risk: {projected_risk:.2f}"
 
     def sell(self, name, amount):
+        """
+        מוכר נייר ערך מהתיק, בודק אם אפשר למכור, מעדכן מסד נתונים, ומציג סיכון חדש.
+        """
+
+        # שליפת התיק מה-DB
         portfolio_data = self.dbmodel.getdata()
-        if name not in [sec['name'] for sec in portfolio_data.values()]:
-            return False, "Security not found in portfolio."
 
-        current_amount = sum(sec['ammont'] for sec in portfolio_data.values() if sec['name'] == name)
+        # בדיקה אם נייר קיים בתיק
+        matching_securities = [sec for sec in portfolio_data.values() if sec['name'] == name]
+        if not matching_securities:
+            return False, "❌ Security not found in portfolio."
+
+        # בדיקת כמות נוכחית
+        current_amount = sum(sec['ammont'] for sec in matching_securities)
         if current_amount < amount:
-            return False, f"Not enough units to sell. You own {current_amount} units."
+            return False, f"❌ Not enough units to sell. You own {current_amount} units."
 
+        # ביצוע המכירה (עדכון או מחיקה לפי הכמות)
         self.dbmodel.sell(name, amount)
-        return True, f"'{name}' sold successfully!"
+
+        # חישוב סיכון חדש אחרי המכירה
+        new_risk = self.portfolio.calculate_total_risk()
+
+        # החזרת הודעת הצלחה + סיכון חדש
+        return True, f"✅ '{name}' sold successfully! Total portfolio risk after sale: {new_risk:.2f}"
 
     def get_portfolio_data(self):
-        return self.dbmodel.getdata()
+        return self.dbmodel.get_portfolio_data()
 
     def get_total_risk(self):
         return self.portfolio.calculate_total_risk()
@@ -78,19 +118,23 @@ class controller:
         return total_risk
 
     def is_risk_acceptable(self, total_risk):
-        if self.risk_level == 'High':
-            # רמת סיכון גבוהה - תמיד מאושר
-            return True
-        # רמות סיכון Low ו-Medium עם גבול
+        """
+        בודקת האם הסיכון הכולל של התיק **לא חורג מהטווח העליון** של רמת הסיכון שנבחרה.
+        המשתמש יכול לקנות מניות/אג"ח בסיכון נמוך יותר ללא מגבלה כל עוד לא עובר את המקסימום.
+        """
+        _, max_risk = self._get_risk_range_for_level()  # קבלת הטווח העליון בלבד
+        return total_risk <= max_risk  # מותר כל עוד לא חורגים מהעליון
+
+    def _get_risk_range_for_level(self):
+        """
+        מחזירה את הטווח (min, max) של רמת הסיכון שנבחרה.
+        """
         risk_ranges = {
             'Low': (0.1, 2.5),
-            'Medium': (2.51, 4.5)
+            'Medium': (2.51, 4.5),
+            'High': (4.51, float('inf'))
         }
-        min_risk, max_risk = risk_ranges[self.risk_level]
-        return min_risk <= total_risk <= max_risk
-
-    def get_available_securities(self):
-        return self.dbmodel.get_available_securities()
+        return risk_ranges[self.risk_level]
 
     def get_advice(self, question):
         print("Getting AI advice...")
@@ -120,13 +164,13 @@ class controller:
         total_risk = (current_total_risk * total_current_amount + security_risk * amount) / (total_current_amount + amount)
 
         return total_risk
-
-    def get_individual_risk(self, security_dict):
-        """מחזירה את סיכון הנייר ע"פ הנתונים שלו כפי שמופיעים בתיק"""
-        if security_dict['type'] == 'stock':
-            security = Stock(security_dict['name'], security_dict['sector'], security_dict['variance'], security_dict['subtype'])
-        elif security_dict['type'] == 'bond':
-            security = Bond(security_dict['name'], security_dict['sector'], security_dict['variance'], security_dict['subtype'])
+    
+    def get_individual_risk(self, security_obj):
+        # מחשב סיכון אישי של נייר ערך לפי הנתונים.
+        if security_obj.security_type == 'stock':
+            security = Stock(security_obj.name, security_obj.sector, security_obj.variance, security_obj.subtype)
+        elif security_obj.security_type == 'bond':
+            security = Bond(security_obj.name, security_obj.sector, security_obj.variance, security_obj.subtype)
         else:
-            return 0  # אם זה לא מניה או אג"ח, מחזירים 0
+            return 0  # לא חוקי
         return security.calculate_risk()

@@ -62,14 +62,6 @@ class Stock(Security):
         }.get(self.sector, 3)  # ברירת מחדל 3
         type_weight = 1  # מניות תמיד 1
         return variance_weight * sector_weight * type_weight
-    
-    # def calculate_risk(self):
-    #     alpha, beta, gamma = 0.5, 0.3, 0.2
-    #     sector_risk = self._get_sector_risk()
-    #     variance_risk = self._get_variance_risk()
-    #     type_risk = 1  # always 1 for stock
-
-    #     return alpha * sector_risk + beta * variance_risk + gamma * type_risk
 
     def _get_sector_risk(self):
         sectors = {
@@ -103,15 +95,6 @@ class Bond(Security):
             type_weight = 0.1  # אג"ח קונצרני
         return variance_weight * sector_weight * type_weight
 
-    # def calculate_risk(self):
-    #     alpha, beta, gamma = 0.5, 0.3, 0.2
-    #     sector_risk = self._get_sector_risk()
-    #     variance_risk = self._get_variance_risk()
-    #     type_risk = 0.5 if self.subtype == "government" else 0.1  # government/corporate
-
-    #     base_risk = alpha * sector_risk + beta * variance_risk + gamma * type_risk
-    #     return base_risk * (0.5 if self.subtype == "government" else 0.1)
-
     def _get_sector_risk(self):
         sectors = {
             "Technology": 6, "Transportation and Aviation": 5, "Energy": 4, "Health": 4,
@@ -122,30 +105,50 @@ class Bond(Security):
     def _get_variance_risk(self):
         return 2 if self.variance.lower() == "high" else 1
 
+
 class Portfolio:
     def __init__(self, db):
         self.db = db
 
     def calculate_total_risk(self):
-        data = self.db.getdata()
-        if not data:
-            return 0
+        """
+        מחשבת את הסיכון הכולל של התיק לפי הנתונים במסד הנתונים.
+        אם אין ניירות ערך, מחזירה 0.
+        """
 
-        total_risk = 0
-        total_amount = 0
-        for sec in data.values():
-            if sec['type'] == 'stock':
-                security = Stock(sec['name'], sec['sector'], sec['variance'], sec['subtype'])
-            elif sec['type'] == 'bond':
-                security = Bond(sec['name'], sec['sector'], sec['variance'], sec['subtype'])
+        # שליפת ניירות ערך מהתיק דרך dbmodel (כעת מחזיר רשימת SecurityData)
+        securities = self.db.get_portfolio_data()
+
+        if not securities:
+            return 0  # אין ניירות ערך, אין סיכון
+
+        # חישוב סך כל שווי ההשקעות
+        total_value = sum(float(sec.basevalue) * float(sec.ammont) for sec in securities)
+
+        if total_value == 0:
+            return 0  # אין שווי השקעה, אין סיכון
+
+        weighted_risk = 0  # סיכון משוקלל סופי
+
+        for sec in securities:
+            # יצירת אובייקט Stock/Bond לפי סוג
+            if sec.security_type == 'stock':
+                security_obj = Stock(sec.name, sec.sector, sec.variance, sec.subtype)
+            elif sec.security_type == 'bond':
+                security_obj = Bond(sec.name, sec.sector, sec.variance, sec.subtype)
             else:
-                continue  # skip unknown types
+                continue  # דילוג על סוג לא חוקי (למשל future סוג חדש)
 
-            risk = security.calculate_risk()
-            total_risk += risk * sec['ammont']
-            total_amount += sec['ammont']
+            # חישוב סיכון אישי
+            risk = security_obj.calculate_risk()
 
-        if total_amount == 0:
-            return 0
+            # חישוב ערך השקעה (basevalue * amount)
+            value = float(sec.basevalue) * float(sec.ammont)
 
-        return total_risk / total_amount
+            # חישוב משקל נייר בתיק
+            weight = value / total_value
+
+            # חישוב תרומת נייר לסיכון התיק
+            weighted_risk += risk * weight
+
+        return weighted_risk
