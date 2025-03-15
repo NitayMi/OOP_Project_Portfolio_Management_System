@@ -6,6 +6,18 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import threading
 from controller import controller
+from advisor_ai import run_ai_advisor
+
+
+# AI Advisor Import (with safe fallback if file not exists)
+try:
+    from advisor_ai import run_ai_advisor, ask_custom_question
+except ImportError:
+    from tkinter import messagebox
+    def run_ai_advisor():
+        messagebox.showinfo("AI", "AI Advisor is not available.")
+    def ask_custom_question():
+        messagebox.showinfo("AI", "AI Advisor is not available.")
 
 
 class PortfolioApp(tk.Tk):
@@ -19,19 +31,23 @@ class PortfolioApp(tk.Tk):
         self.ask_risk_level()
 
     def ask_risk_level(self):
-        popup = tk.Toplevel(self)
-        popup.title("Select Risk Level")
-        popup.geometry("300x150")
-        tk.Label(popup, text="Select your risk level:", font="Sans 14").pack(pady=10)
+        self.risk_frame = ttk.Frame(self)
+        self.risk_frame.pack(expand=True, fill='both')
 
-        def set_risk(level):
-            self.risk_level = level
-            popup.destroy()
-            self.start_main_ui()
+        ttk.Label(self.risk_frame, text="Select your risk level:", font="Sans 16").pack(pady=30)
 
-        ttk.Button(popup, text="Low", command=lambda: set_risk("Low")).pack(pady=5, fill='x')
-        ttk.Button(popup, text="Medium", command=lambda: set_risk("Medium")).pack(pady=5, fill='x')
-        ttk.Button(popup, text="High", command=lambda: set_risk("High")).pack(pady=5, fill='x')
+        button_frame = ttk.Frame(self.risk_frame)
+        button_frame.pack(pady=20)
+
+        ttk.Button(button_frame, text="Low", command=lambda: self.set_risk("Low"), width=20).pack(pady=10)
+        ttk.Button(button_frame, text="Medium", command=lambda: self.set_risk("Medium"), width=20).pack(pady=10)
+        ttk.Button(button_frame, text="High", command=lambda: self.set_risk("High"), width=20).pack(pady=10)
+
+    def set_risk(self, level):
+        self.risk_level = level
+        self.risk_frame.destroy()  # מוחק את ה-frame של בחירת סיכון
+        self.start_main_ui()  # ממשיך לממשק המלא
+
 
     def start_main_ui(self):
         self.controller = controller(self.risk_level)
@@ -193,9 +209,12 @@ class PortfolioApp(tk.Tk):
         ttk.Button(popup, text="Confirm Buy", command=confirm_buy).pack(pady=10)
 
     def ask_ai_advisor(self):
-        question = simpledialog.askstring("AI Advisor", "What would you like to ask?")
-        if question:
-            threading.Thread(target=self.process_ai_advice, args=(question,)).start()
+        portfolio = self.portfolio_securities  # ככה שולפים את התיק שאתה רואה
+        total_risk = self.controller.get_total_risk()  # ככה שולפים את הסיכון
+        messagebox.showinfo("AI Advisor", "sending Portfolio to Ai Advidor, Please Wait...")
+        # שולח את התיק והסיכון ל-AI
+        threading.Thread(target=lambda: run_ai_advisor(portfolio, total_risk)).start()
+
 
     def process_ai_advice(self, question):
         answer = self.controller.get_advice(question)
