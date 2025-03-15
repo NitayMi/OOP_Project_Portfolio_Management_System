@@ -8,7 +8,4 @@ def getanswer( question):
 if __name__ == "__main__":
      question = input("ask a question:")
      print(getanswer(question)) 
-    
-
-
 
