@@ -112,36 +112,3 @@ def generate_portfolio_prompt(portfolio, total_risk):
         f"Please analyze this portfolio"
     )
     return question
-
-
-# פונקציה שמחברת את ה-AI עם הזרמת תשובה
-def stream_ai_response(prompt):
-    try:
-        # יצירת popup GUI
-        popup = tk.Toplevel()
-        popup.title("AI Live Response")
-        text_area = scrolledtext.ScrolledText(popup, wrap='word', font='Sans 12')
-        text_area.pack(expand=True, fill='both')
-        text_area.insert('end', "AI is thinking...\n\n")
-        text_area.update_idletasks()
-
-        # שליחת שאלה ל-AI במצב stream
-        with requests.post(AI_API_URL, json={
-            "model": "deepseek-r1:7b",
-            "prompt": prompt,
-            "stream": True
-        }, stream=True) as response:
-            response.raise_for_status()  # אם יש בעיה, תזרוק שגיאה
-
-            for line in response.iter_lines(decode_unicode=True):
-                if line:
-                    print("🟢 AI Stream:", line)  # הדפסה ל-debug
-                    text_area.insert('end', line + '\n')  # הוספה ל-GUI
-                    text_area.see('end')  # גלילה אוטומטית
-                    text_area.update_idletasks()  # עדכון GUI
-
-        save_response_to_file(text_area.get('1.0', 'end'))  # לשמור הכל בסוף
-
-    except Exception as e:
-        print(f"❌ AI Stream Error: {e}")
-        tk.Tk().after(0, lambda: messagebox.showerror("AI Error", f"Failed to get AI response. Please check AI connection. Error: {e}"))

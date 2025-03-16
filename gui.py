@@ -6,7 +6,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import threading
 from controller import controller
-from advisor_ai import run_ai_advisor, ask_custom_question, stream_ai_response, generate_portfolio_prompt
+from advisor_ai import run_ai_advisor, ask_custom_question
 
 
 # AI Advisor Import (with safe fallback if file not exists)
