@@ -4,7 +4,6 @@ from controller import controller
 
 app = FastAPI()
 
-
 class TradeRequest(BaseModel):
     name: str
     sector: str

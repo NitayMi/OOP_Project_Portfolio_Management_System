@@ -6,7 +6,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import threading
 from controller import controller
-from advisor_ai import run_ai_advisor
+from advisor_ai import run_ai_advisor, ask_custom_question, stream_ai_response, generate_portfolio_prompt
 
 
 # AI Advisor Import (with safe fallback if file not exists)
@@ -55,6 +55,7 @@ class PortfolioApp(tk.Tk):
         self.create_tabs()
         self.refresh_all()
 
+
     def create_summary(self):
         self.summary_frame = ttk.Frame(self)
         self.summary_frame.pack(fill='x', pady=10)
@@ -65,7 +66,13 @@ class PortfolioApp(tk.Tk):
         self.total_risk_label = ttk.Label(self.summary_frame, text="Total Risk: Calculating...")
         self.total_risk_label.pack(side='left', padx=10)
 
-        ttk.Button(self.summary_frame, text="Ask AI Advisor", command=self.ask_ai_advisor).pack(side='right', padx=10)
+        # כפתור ייעוץ AI לתיק
+        ttk.Button(self.summary_frame, text="AI Portfolio Analysis", command=self.ask_ai_advisor).pack(side='right', padx=10)
+
+        # כפתור לשאלות חופשיות - בלי Thread, ישירות
+        ttk.Button(self.summary_frame, text="Ask AI (Free Question)", command=ask_custom_question).pack(side='right', padx=10)
+        
+ 
 
     def create_tabs(self):
         self.tab_control = ttk.Notebook(self)
@@ -215,6 +222,8 @@ class PortfolioApp(tk.Tk):
         # שולח את התיק והסיכון ל-AI
         threading.Thread(target=lambda: run_ai_advisor(portfolio, total_risk)).start()
 
+    def ask_ai_free(self):
+        threading.Thread(target=ask_custom_question).start()
 
     def process_ai_advice(self, question):
         answer = self.controller.get_advice(question)
@@ -224,7 +233,7 @@ class PortfolioApp(tk.Tk):
         text.insert('1.0', answer)
         text.pack(expand=True, fill='both')
 
-
 if __name__ == "__main__":
     app = PortfolioApp()
     app.mainloop()
+

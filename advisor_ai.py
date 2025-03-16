@@ -1,78 +1,147 @@
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, simpledialog
 from datetime import datetime
 import requests
+import threading
 
+# הגדרת כתובת ה-AI
 AI_API_URL = "http://127.0.0.1:11434/api/generate"
 
-# הפונקציה שמקבלת את התיק והסיכון ושולחת ל-AI
+# -------------------- פונקציה לניתוח תיק -------------------- #
 def run_ai_advisor(portfolio, total_risk):
     try:
-        print("📊 Portfolio sent to AI:", portfolio)  # לבדוק מה נשלח
+        print("📊 Portfolio sent to AI:", portfolio)
         print("⚠️ Total risk:", total_risk)
 
-        # הכנת התיק בצורת טקסט
+        # בניית תיאור התיק
         portfolio_description = "\n".join(
             [f"{item.name}, Amount: {item.ammont}, Base Value: {item.basevalue}, Sector: {item.sector}, Type: {item.security_type}, Risk: {item.variance}" for item in portfolio]
         )
 
-        # ניסוח שאלה חזקה שמכריחה אותו לענות קצר
+        # ניסוח שאלה חכמה
         question = (
             f"My portfolio:\n{portfolio_description}\n"
             f"Total risk: {total_risk:.2f}\n\n"
-            f"Please analyze this portfolio and give me ONLY 5 very short bullet points. "
-            f"Each point should be 1 simple sentence. "
-            f"Do NOT explain. Do NOT elaborate. "
-            f"Be extremely concise and straight to the point."
+            f"Please analyze this portfolio."
         )
 
-        print("🧠 Question to AI:", question)  # לבדוק מה נשלח בפועל
+        print("🧠 Question to AI:", question)
 
-        # שליחה ל-AI **בלי חיתוך קשוח** (כדי לא לחתוך באמצע)
+        # שליחה ל-AI
         response = requests.post(AI_API_URL, json={
             "model": "deepseek-r1:7b",
             "prompt": question,
-            "stream": False,
-            "options": {
-            }
+            "stream": False
         }).json()
 
+        # הצגה ושמירה
         save_response_to_file(response['response'])
         show_ai_response(response['response'])
 
     except Exception as e:
-        print(f"❌ AI Error: {e}")  # אם יש שגיאה
+        print(f"❌ AI Error: {e}")
         messagebox.showerror("AI Error", f"Failed to get AI advice: {e}")
 
 
-# שמירת תשובה לקובץ
-def save_response_to_file(response):
-    with open("ai_advisor_history.log", "a", encoding="utf-8") as file:
-        file.write(f"\n[{datetime.now()}]\n{response}\n{'-'*50}\n")
+# -------------------- פונקציה לשאלה חופשית -------------------- #
+def ask_custom_question():
+    # קודם לקבל את השאלה מהמשתמש
+    question = simpledialog.askstring("Ask AI", "What would you like to ask?")
+
+    if question:
+        # שליחה ל-AI ב-thread נפרד
+        threading.Thread(target=lambda: send_question_to_ai(question)).start()
 
 
-# הצגת התשובה בפופאפ
+# שליחת שאלה חופשית ל-AI
+def send_question_to_ai(question):
+    try:
+        # ניסוח פקודה קשוחה
+        question = (
+            f"{question}\n\n"
+            f"ANSWER STRICT FORMAT: ANSWER: <your short answer here>. NOTHING ELSE.\n"
+            f"Return ONLY short answer.\n"
+            f"Do NOT explain, do NOT say 'sure', do NOT analyze. Just answer directly."
+        )
+
+        print("🟡 Sending free question to AI:", question)
+        response = requests.post(AI_API_URL, json={
+            "model": "deepseek-r1:7b",
+            "prompt": question,
+            "stream": False
+        })
+
+        print("🟡 AI Raw Response:", response.text)
+
+        if response.status_code == 200:
+            data = response.json()
+            save_response_to_file(data['response'])
+            show_ai_response(data['response'])
+        else:
+            raise Exception(f"AI returned status code {response.status_code}")
+
+    except Exception as e:
+        print(f"❌ AI Free Question Error: {e}")
+        tk.Tk().after(0, lambda: messagebox.showerror("AI Error", f"Failed to get AI response. Please check AI connection. Error: {e}"))
+
+
+# -------------------- הצגת תשובה בפופאפ -------------------- #
 def show_ai_response(response):
     popup = tk.Toplevel()
-    popup.title("AI Advisor Response")
+    popup.title("AI Response")
     text = scrolledtext.ScrolledText(popup, wrap='word', font='Sans 12')
     text.insert('1.0', response)
     text.pack(expand=True, fill='both')
 
 
-# שאלה חופשית (לפי השאלה שלך):
-def ask_custom_question():
-    try:
-        question = simpledialog.askstring("Ask AI", "What would you like to ask?")
-        if question:
-            response = requests.post(AI_API_URL, json={
-                "model": "deepseek-r1:7b",
-                "prompt": question,
-                "stream": False
-            }).json()
+# -------------------- שמירת תשובה לקובץ -------------------- #
+def save_response_to_file(response):
+    with open("ai_advisor_history.log", "a", encoding="utf-8") as file:
+        file.write(f"\n[{datetime.now()}]\n{response}\n{'-'*50}\n")
 
-            save_response_to_file(response['response'])
-            show_ai_response(response['response'])
+
+
+# פונקציה שיוצרת את ה-prompt לניתוח התיק
+def generate_portfolio_prompt(portfolio, total_risk):
+    portfolio_description = "\n".join(
+        [f"{item.name}, Amount: {item.ammont}, Base Value: {item.basevalue}, Sector: {item.sector}, Type: {item.security_type}, Risk: {item.variance}" for item in portfolio]
+    )
+    question = (
+        f"My portfolio:\n{portfolio_description}\n"
+        f"Total risk: {total_risk:.2f}\n\n"
+        f"Please analyze this portfolio"
+    )
+    return question
+
+
+# פונקציה שמחברת את ה-AI עם הזרמת תשובה
+def stream_ai_response(prompt):
+    try:
+        # יצירת popup GUI
+        popup = tk.Toplevel()
+        popup.title("AI Live Response")
+        text_area = scrolledtext.ScrolledText(popup, wrap='word', font='Sans 12')
+        text_area.pack(expand=True, fill='both')
+        text_area.insert('end', "AI is thinking...\n\n")
+        text_area.update_idletasks()
+
+        # שליחת שאלה ל-AI במצב stream
+        with requests.post(AI_API_URL, json={
+            "model": "deepseek-r1:7b",
+            "prompt": prompt,
+            "stream": True
+        }, stream=True) as response:
+            response.raise_for_status()  # אם יש בעיה, תזרוק שגיאה
+
+            for line in response.iter_lines(decode_unicode=True):
+                if line:
+                    print("🟢 AI Stream:", line)  # הדפסה ל-debug
+                    text_area.insert('end', line + '\n')  # הוספה ל-GUI
+                    text_area.see('end')  # גלילה אוטומטית
+                    text_area.update_idletasks()  # עדכון GUI
+
+        save_response_to_file(text_area.get('1.0', 'end'))  # לשמור הכל בסוף
 
     except Exception as e:
-        messagebox.showerror("AI Error", f"Failed to get AI response: {e}")
+        print(f"❌ AI Stream Error: {e}")
+        tk.Tk().after(0, lambda: messagebox.showerror("AI Error", f"Failed to get AI response. Please check AI connection. Error: {e}"))
