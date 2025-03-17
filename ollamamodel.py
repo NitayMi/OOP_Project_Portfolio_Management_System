@@ -26,3 +26,40 @@ class OllamaAIAdvisor(IAIAdvisor):
 
     def get_advice(self, question: str) -> str:
         return self.ai.get_advice(question)
+    
+# =============================================================================
+from rag_engine import query as rag_query
+import ollama
+
+class AIAdvisorRAG:
+    def __init__(self, model='deepseek-r1:7b'):
+        self.model = model
+
+    def get_advice(self, question, portfolio_data=None):
+        portfolio_context = ""
+        if portfolio_data:
+            portfolio_context = "\n".join([
+                f"- {item.name}, {item.security_type}, Sector: {item.sector}, Risk: {item.variance}, Amount: {item.ammont}"
+                for item in portfolio_data
+            ])
+
+        rag_context = rag_query(question, top_k=3)  # רק שאילתא
+        full_question = f"""
+You are a professional investment advisor AI.
+
+User's Risk Profile and Portfolio:
+{portfolio_context}
+
+Relevant Background Knowledge:
+{rag_context}
+
+Question:
+{question}
+
+Provide a professional and personalized investment recommendation.
+"""
+        response = ollama.generate(
+            model=self.model,
+            prompt=full_question
+        )
+        return response.get('response', '❌ No valid response')

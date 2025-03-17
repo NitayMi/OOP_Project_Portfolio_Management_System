@@ -229,11 +229,19 @@ class PortfolioApp(tk.Tk):
         ttk.Button(popup, text="Confirm Buy", command=confirm_buy).pack(pady=10)
 
     def ask_ai_advisor(self):
-        portfolio = self.portfolio_securities  # ככה שולפים את התיק שאתה רואה
-        total_risk = self.controller.get_total_risk()  # ככה שולפים את הסיכון
-        messagebox.showinfo("AI Advisor", "sending Portfolio to Ai Advidor, Please Wait...")
-        # שולח את התיק והסיכון ל-AI
-        threading.Thread(target=lambda: run_ai_advisor(portfolio, total_risk)).start()
+        """
+        Ask AI advisor for investment advice based on the current portfolio and risk.
+        """
+        print("Asking AI advisor with portfolio and total risk...")
+        # שולף את התיק והסיכון
+        portfolio = self.portfolio_securities
+        total_risk = self.controller.get_total_risk()
+        # בונה שאלה ל-AI (אפשר גם להוסיף פורמט אם רוצים)
+        question = "What should I invest in next based on my current portfolio and risk level?"
+        # שולח את הכל דרך ה-controller
+        answer = self.controller.get_advice(question)
+        # מציג תשובה למשתמש
+        messagebox.showinfo("AI Advisor Recommendation", answer)
 
     def ask_ai_free(self):
         threading.Thread(target=ask_custom_question).start()

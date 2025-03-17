@@ -7,23 +7,40 @@ from dbmodel import SecurityData, dbmodel
 from controller import ControllerV2
 from dbmodel import SqliteRepository
 from ollamamodel import OllamaAIAdvisor
+from ollamamodel import AIAdvisorRAG
+
+ai = AIAdvisorRAG()  # שימוש ב-RAG שמוכן לייעוץ חכם לפי התיק
+
 
 USE_NEW_CONTROLLER = True  # שנה ל-False כדי לעבוד עם ה-controller הישן
 
-
 class view:
-    def __init__(self):
-        risk_level = input("Enter your risk level (Low / Medium / High): ").capitalize()
-        # self.controller = controller(risk_level=risk_level)
-        if USE_NEW_CONTROLLER:
-            db = SqliteRepository()
-            ai = OllamaAIAdvisor()
-            self.controller = ControllerV2(risk_level=risk_level, db_repo=db, ai_advisor=ai)
-        else:
-            self.controller = controller(risk_level=risk_level)
+    def __init__(self, ai_advisor=None):
+        self.controller = None
+        self.ai_advisor = ai_advisor  # שמירה פנימית
 
+# class view:
+#     def __init__(self):
+#         self.controller = None
 
     def show(self):
+        # בקשת רמת סיכון מהמשתמש - לולאה עד שמכניס ערך תקין
+        while True:
+            risk_level = input("Enter your risk level (Low / Medium / High): ").capitalize()
+            if risk_level in ["Low", "Medium", "High"]:
+                break  # יציאה מהלולאה אם תקין
+            else:
+                print("❌ Invalid risk level. Please choose: Low / Medium / High.")
+
+        if USE_NEW_CONTROLLER:
+            db = SqliteRepository()
+            ai = self.ai_advisor # או OllamaAIAdvisor() אם תעבור ל-Ollama   # או AIAdvisorRAG אם תעבור ל-RAG
+            self.controller = ControllerV2(risk_level=risk_level, db_repo=db, ai_advisor=ai)
+        else:
+            self.controller = controller()
+        # שליחת הסיכון לקונטרולר
+        self.controller.set_risk_level(risk_level)
+
         while True:
             print(Fore.CYAN + """
             Menu
@@ -151,10 +168,8 @@ class view:
 
     def get_advice(self):
         question = input("Enter your question for AI Advisor: ")
-        self.controller.get_advice(question)
         answer = self.controller.get_advice(question)
         print(Fore.GREEN + f"\nAI Advisor says: {answer}" + Style.RESET_ALL)
-
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
     def show_portfolio(self):
@@ -185,11 +200,6 @@ class view:
 
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
-        graph_choice = input("Do you want to see a graph? (yes/no): ").strip().lower()
-        if graph_choice == "yes":
-            self.show_portfolio_graph()
-
-
     def display_graph(self, portfolio):
         names = [sec.name for sec in portfolio]
         amounts = [sec.ammont for sec in portfolio]
@@ -199,31 +209,31 @@ class view:
         plt.title('Portfolio Distribution')
         plt.show()
 
-    def show_portfolio_graph(self):
-        portfolio = self.controller.get_portfolio_data()
-        if not portfolio:
-            print("❌ Your portfolio is empty.")
-            return
+    # def show_portfolio_graph(self):
+    #     portfolio = self.controller.get_portfolio_data()
+    #     if not portfolio:
+    #         print("❌ Your portfolio is empty.")
+    #         return
 
-        # סיכום נתוני התיק
-        labels = [sec.name for sec in portfolio]
-        sizes = [sec.basevalue * sec.ammont for sec in portfolio]
+    #     # סיכום נתוני התיק
+    #     labels = [sec.name for sec in portfolio]
+    #     sizes = [sec.basevalue * sec.ammont for sec in portfolio]
 
-        # גרף פאי לפי שווי השקעה
-        plt.figure(figsize=(8, 8))
-        plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-        plt.title('Portfolio Distribution by Value')
-        plt.axis('equal')  # עיגול
-        plt.show()
+    #     # גרף פאי לפי שווי השקעה
+    #     plt.figure(figsize=(8, 8))
+    #     plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
+    #     plt.title('Portfolio Distribution by Value')
+    #     plt.axis('equal')  # עיגול
+    #     plt.show()
 
-        # גרף עמודות לפי סקטור
-        sectors = {}
-        for sec in portfolio:
-            sectors[sec.sector] = sectors.get(sec.sector, 0) + (sec.basevalue * sec.ammont)
+    #     # גרף עמודות לפי סקטור
+    #     sectors = {}
+    #     for sec in portfolio:
+    #         sectors[sec.sector] = sectors.get(sec.sector, 0) + (sec.basevalue * sec.ammont)
 
-        plt.figure(figsize=(10, 6))
-        plt.bar(sectors.keys(), sectors.values())
-        plt.title('Portfolio Distribution by Sector')
-        plt.xlabel('Sector')
-        plt.ylabel('Total Value')
-        plt.show()
+    #     plt.figure(figsize=(10, 6))
+    #     plt.bar(sectors.keys(), sectors.values())
+    #     plt.title('Portfolio Distribution by Sector')
+    #     plt.xlabel('Sector')
+    #     plt.ylabel('Total Value')
+    #     plt.show()

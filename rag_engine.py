@@ -6,43 +6,29 @@ from sentence_transformers import SentenceTransformer
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")  # מודל מהיר, מתאים למחשב שלך
 
 # יצירת מאגר Chroma
-client = chromadb.Client()
-collection = client.get_or_create_collection("investment_knowledge")
+persist_directory = "db"  # לוודא שזה תואם למה שיש ב-loader
+client = chromadb.PersistentClient(path=persist_directory)
+collection = client.get_or_create_collection(name="my_collection")
+
 
 # פונקציה ליצירת embedding
 def embed_text(text):
     return embedding_model.encode([text])[0].tolist()
 
-# פונקציה לטעינת מידע לקולקציה (vector DB)
-def load_data(text_list):
-    for idx, text in enumerate(text_list):
-        collection.add(
-            documents=[text],
-            ids=[str(idx)],
-            embeddings=[embed_text(text)]
-        )
-    print("✅ Knowledge base loaded successfully.")
+def query(question, top_k=3):
+    """
+    Query the RAG knowledge base and return the most relevant document.
 
-# פונקציה לחיפוש תשובה
-def query(question, top_k=1):
-    question_embedding = embed_text(question)
-    results = collection.query(query_embeddings=[question_embedding], n_results=top_k)
-    if results['documents']:
-        return results['documents'][0][0]  # מחזיר את התוצאה הכי דומה
-    return "❌ No relevant information found."
+    :param question: The user's question.
+    :param top_k: Number of top results to retrieve.
+    :return: The most relevant document text or a default message if no result found.
+    """
+    results = collection.query(query_texts=[question], n_results=top_k)
 
-# דוגמה לשימוש (רק אם מריצים את הקובץ ישירות)
-if __name__ == "__main__":
-    # טעינת ידע ראשוני
-    knowledge = [
-        "A stock is a security that represents partial ownership in a company.",
-        "A bond is a security that represents a debt obligation from the issuer to the holder.",
-        "High risk is suitable for investors willing to take significant risks for higher returns.",
-        "Diversifying investments helps reduce the overall portfolio risk."
-    ]
-    load_data(knowledge)
-
-    # בדיקה עם שאלה
-    question = "What is a stock?"
-    answer = query(question)
-    print(f"\n❓ Question: {question}\n💡 Answer: {answer}")
+    # בדיקה אם קיימות תוצאות אמיתיות
+    if results and 'documents' in results and results['documents']:
+        first_doc_list = results['documents'][0]  # לוקח את הרשימה הראשונה של התשובות
+        if first_doc_list:  # אם הרשימה לא ריקה
+            return first_doc_list[0]  # מחזיר את התוצאה הראשונה
+    # אם אין תוצאה רלוונטית
+    return "No relevant background knowledge found."

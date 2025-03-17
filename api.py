@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from controller import controller
+from controller import controller, ControllerV2
+from dbmodel import SqliteRepository
+from ollamamodel import AIAdvisorRAG
 
 app = FastAPI()
 
@@ -50,5 +52,33 @@ def sell(trade: TradeRequest):
         c = controller("Medium")
         success, message = c.sell(trade.name, trade.security_type, trade.sector, trade.subtype, trade.amount)
         return {"success": success, "message": message}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+
+# =============================================================================
+class AIRequest(BaseModel):
+    question: str
+
+
+@app.post("/rag_advice")
+def rag_advice(request: AIRequest):
+    """
+    API endpoint to get AI investment advice using RAG and personalized portfolio.
+    :param request: AIRequest containing the user's question.
+    :return: AI-generated advice as JSON.
+    """
+    try:
+        # יצירת מחברים לפי OOP (הזרקת תלויות)
+        db = SqliteRepository()
+        ai = AIAdvisorRAG()
+        c = ControllerV2(risk_level='Medium', db_repo=db, ai_advisor=ai)
+
+        # קבלת תשובה מה-AI
+        answer = c.get_advice(request.question)
+
+        return {"answer": answer}
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

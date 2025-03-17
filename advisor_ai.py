@@ -59,9 +59,9 @@ def send_question_to_ai(question):
         # ניסוח פקודה קשוחה
         question = (
             f"{question}\n\n"
-            f"ANSWER STRICT FORMAT: ANSWER: <your short answer here>. NOTHING ELSE.\n"
-            f"Return ONLY short answer.\n"
-            f"Do NOT explain, do NOT say 'sure', do NOT analyze. Just answer directly."
+            # f"ANSWER STRICT FORMAT: ANSWER: <your short answer here>. NOTHING ELSE.\n"
+            # f"Return ONLY short answer.\n"
+            # f"Do NOT explain, do NOT say 'sure', do NOT analyze. Just answer directly."
         )
 
         print("🟡 Sending free question to AI:", question)

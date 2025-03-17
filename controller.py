@@ -216,6 +216,12 @@ class ControllerV2:
         self.portfolio = Portfolio(self.db)
         self.risk_level = risk_level
 
+    def set_risk_level(self, risk_level: str):
+        """
+        Set risk level dynamically based on user input.
+        """
+        self.risk_level = risk_level
+
     def get_available_securities(self):
         return self.db.get_available_securities()
 
@@ -265,10 +271,21 @@ class ControllerV2:
         return risk_ranges[self.risk_level]
 
     def get_advice(self, question):
-        print("Getting AI advice...")
-        answer = self.ai_advisor.get_advice(question)
-        print("AI Advice:", answer)
+        """
+        Get AI-based investment advice using AIAdvisorRAG, based on user's portfolio.
+        :param question: User's question for the AI.
+        :return: AI-generated advice string.
+        """
+        print("🔍 Getting AI advice with RAG and personalized portfolio context...")
+
+        portfolio = self.db.get_portfolio_data()  # שולף את תיק ההשקעות של המשתמש
+
+        # קריאה ל-AI החדש
+        answer = self.ai_advisor.get_advice(question, portfolio_data=portfolio)
+
+        print("💡 AI Advice:", answer)
         return answer
+
 
     def calculate_projected_risk(self, name, sector, variance, security_type, subtype, amount):
         if security_type == 'stock':
