@@ -6,7 +6,14 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import threading
 from controller import controller
-from advisor_ai import run_ai_advisor, ask_custom_question
+
+# שימוש בקונטרולר החדש
+from controller import ControllerV2
+from dbmodel import SqliteRepository
+from ollamamodel import OllamaAIAdvisor
+
+
+USE_NEW_CONTROLLER = True  # שנה ל-False כדי לעבוד עם ה-controller הישן
 
 
 # AI Advisor Import (with safe fallback if file not exists)
@@ -50,7 +57,13 @@ class PortfolioApp(tk.Tk):
 
 
     def start_main_ui(self):
-        self.controller = controller(self.risk_level)
+        # self.controller = controller(self.risk_level)
+        if USE_NEW_CONTROLLER:
+            db = SqliteRepository()
+            ai = OllamaAIAdvisor()
+            self.controller = ControllerV2(risk_level=self.risk_level, db_repo=db, ai_advisor=ai)
+        else:
+            self.controller = controller(risk_level=self.risk_level)
         self.create_summary()
         self.create_tabs()
         self.refresh_all()

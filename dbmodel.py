@@ -1,4 +1,5 @@
 import sqlite3
+from abc import ABC, abstractmethod
 
 class SecurityData:
     def __init__(self, id, name, basevalue, ammont, sector, variance, security_type, subtype='N/A'):
@@ -14,6 +15,27 @@ class SecurityData:
     def __str__(self):
         return f"{self.name} ({self.security_type}) - {self.ammont} units @ {self.basevalue}"
 
+class IDataRepository(ABC):
+    @abstractmethod
+    def get_portfolio_data(self):
+        pass
+
+    @abstractmethod
+    def get_available_securities(self):
+        pass
+
+    @abstractmethod
+    def insert_or_update(self, name, sector, variance, security_type, subtype, basevalue, amount):
+        pass
+
+    @abstractmethod
+    def sell(self, name, amount):
+        pass
+
+    @abstractmethod
+    def clear_portfolio(self):
+        pass
+
 
 class dbmodel:
     def __init__(self):
@@ -21,26 +43,6 @@ class dbmodel:
         self.conn = sqlite3.connect('investments.db')
         self.cursor = self.conn.cursor()
         self.create_table()
-
-
-# למחוק אחרי זה ============================================
-    def create_investments_table(self):
-        self.cursor.execute('DROP TABLE IF EXISTS investments;')  # מוחק טבלה ישנה (אם קיימת)
-        self.cursor.execute('''
-            CREATE TABLE investments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                basevalue REAL NOT NULL,
-                ammont REAL NOT NULL,
-                sector TEXT NOT NULL,
-                variance TEXT NOT NULL,
-                type TEXT NOT NULL,
-                subtype TEXT NOT NULL
-            )
-        ''')
-        self.conn.commit()
-        print("✅ 'investments' table created successfully!")
-# למחוק עד פה ============================================
 
     def create_table(self):
         self.cursor.execute('''
@@ -160,3 +162,23 @@ class dbmodel:
         self.cursor.execute("SELECT * FROM investments")
         rows = self.cursor.fetchall()
         return [SecurityData(*row) for row in rows] if rows else []
+    
+class SqliteRepository(IDataRepository):
+    def __init__(self):
+        self.db = dbmodel()
+
+    def get_portfolio_data(self):
+        return self.db.get_portfolio_data()
+
+    def get_available_securities(self):
+        return self.db.get_available_securities()
+
+    def insert_or_update(self, name, sector, variance, security_type, subtype, basevalue, amount):
+        return self.db.insert_or_update(name, sector, variance, security_type, subtype, basevalue, amount)
+
+    def sell(self, name, amount):
+        return self.db.sell(name, amount)
+
+    def clear_portfolio(self):
+        return self.db.clear_portfolio()
+    

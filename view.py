@@ -3,11 +3,25 @@ from tabulate import tabulate
 from colorama import Fore, Style
 import matplotlib.pyplot as plt
 from dbmodel import SecurityData, dbmodel
+# שימוש בקונטרולר החדש
+from controller import ControllerV2
+from dbmodel import SqliteRepository
+from ollamamodel import OllamaAIAdvisor
+
+USE_NEW_CONTROLLER = True  # שנה ל-False כדי לעבוד עם ה-controller הישן
+
 
 class view:
     def __init__(self):
         risk_level = input("Enter your risk level (Low / Medium / High): ").capitalize()
-        self.controller = controller(risk_level=risk_level)
+        # self.controller = controller(risk_level=risk_level)
+        if USE_NEW_CONTROLLER:
+            db = SqliteRepository()
+            ai = OllamaAIAdvisor()
+            self.controller = ControllerV2(risk_level=risk_level, db_repo=db, ai_advisor=ai)
+        else:
+            self.controller = controller(risk_level=risk_level)
+
 
     def show(self):
         while True:

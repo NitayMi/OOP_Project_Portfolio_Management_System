@@ -1,14 +1,10 @@
-# import ollama
-
-# class ollamamodel():   
-#     def __init__(self):
-#         pass
-    
-#     def get_advice(self,question):
-#         response = ollama.generate(model='deepseek-r1:7b', prompt=question)
-#         return(response['response'])
-
 import ollama
+from abc import ABC, abstractmethod
+
+class IAIAdvisor(ABC):
+    @abstractmethod
+    def get_advice(self, question: str) -> str:
+        pass
 
 class ollamamodel:   
     def __init__(self, model='deepseek-r1:7b'):
@@ -23,3 +19,10 @@ class ollamamodel:
             return f"💡 AI Advisor: {answer}"
         except Exception as e:
             return f"❌ AI Error: {e}"
+
+class OllamaAIAdvisor(IAIAdvisor):
+    def __init__(self):
+        self.ai = ollamamodel()
+
+    def get_advice(self, question: str) -> str:
+        return self.ai.get_advice(question)
