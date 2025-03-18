@@ -97,5 +97,5 @@ We welcome contributions! If you'd like to contribute:
 ## 📧 Contact
 For any questions or issues, feel free to reach out:  
 
-📩 **Email:** Nitay.michaeli@outlook.com  
+📩 **Email:** Nitay.michaeli@outlook.com , Yovelamar10@gmail.com
 📌 **GitHub Repository:** [GitHub Link](https://github.com/NitayMi/OOP_Project_Portfolio_Management_System.git)  
