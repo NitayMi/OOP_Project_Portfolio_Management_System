@@ -1,27 +1,21 @@
-from controller import controller
+from controller import ControllerV2
 from tabulate import tabulate
 from colorama import Fore, Style
 import matplotlib.pyplot as plt
-from dbmodel import SecurityData, dbmodel
-# שימוש בקונטרולר החדש
-from controller import ControllerV2
-from dbmodel import SqliteRepository
-from ollamamodel import OllamaAIAdvisor
-from ollamamodel import AIAdvisorRAG
-
-ai = AIAdvisorRAG()  # שימוש ב-RAG שמוכן לייעוץ חכם לפי התיק
+from dbmodel import SecurityData, dbmodel, SqliteRepository
+from ollamamodel import IAIAdvisor, AIAdvisorRAG
+from rag_loader import get_collection  # טעינת הקולקשן תתבצע רק כשצריך
 
 
 USE_NEW_CONTROLLER = True  # שנה ל-False כדי לעבוד עם ה-controller הישן
+# class view:
+#     def __init__(self):
+#         self.controller = None
 
 class view:
     def __init__(self, ai_advisor=None):
         self.controller = None
         self.ai_advisor = ai_advisor  # שמירה פנימית
-
-# class view:
-#     def __init__(self):
-#         self.controller = None
 
     def show(self):
         # בקשת רמת סיכון מהמשתמש - לולאה עד שמכניס ערך תקין
@@ -30,16 +24,10 @@ class view:
             if risk_level in ["Low", "Medium", "High"]:
                 break  # יציאה מהלולאה אם תקין
             else:
-                print("❌ Invalid risk level. Please choose: Low / Medium / High.")
+                print(" Invalid risk level. Please choose: Low / Medium / High.")
 
-        if USE_NEW_CONTROLLER:
-            db = SqliteRepository()
-            ai = self.ai_advisor # או OllamaAIAdvisor() אם תעבור ל-Ollama   # או AIAdvisorRAG אם תעבור ל-RAG
-            self.controller = ControllerV2(risk_level=risk_level, db_repo=db, ai_advisor=ai)
-        else:
-            self.controller = controller()
-        # שליחת הסיכון לקונטרולר
-        self.controller.set_risk_level(risk_level)
+        db = SqliteRepository()
+        self.controller = ControllerV2(risk_level=risk_level, db_repo=db, ai_advisor=self.ai_advisor)  # ✅ הוספת ai_advisor
 
         while True:
             print(Fore.CYAN + """
@@ -165,12 +153,40 @@ class view:
         print(Fore.GREEN + message + Style.RESET_ALL if success else Fore.RED + message + Style.RESET_ALL)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
-
     def get_advice(self):
+        # אם ה-AI Advisor לא מאותחל, נאתחל אותו בפעם הראשונה
+        if self.controller.ai_advisor is None:
+            print(Fore.YELLOW + "⚡ Initializing AI Advisor..." + Style.RESET_ALL)
+
+            # טעינת הקולקשן של ChromaDB
+            from rag_loader import get_collection  # טעינה דינמית
+            collection = get_collection()
+
+            # יצירת AI Advisor עם הקולקשן שהבאנו
+            from ollamamodel import AIAdvisorRAG  # ייבוא כאן כדי למנוע טעינה מיותרת
+            if not hasattr(self.controller, "ai_advisor") or self.controller.ai_advisor is None:
+                self.controller.ai_advisor = AIAdvisorRAG(model="deepseek-r1:7b")
+
+
+
+        # קבלת השאלה מהמשתמש
         question = input("Enter your question for AI Advisor: ")
-        answer = self.controller.get_advice(question)
-        print(Fore.GREEN + f"\nAI Advisor says: {answer}" + Style.RESET_ALL)
+
+        # שליחת השאלה ל-AI וקבלת תשובה
+        print(Fore.YELLOW + "\n🔍 Getting AI advice with RAG and personalized portfolio context..." + Style.RESET_ALL)
+        answer = self.controller.ai_advisor.get_advice(question)
+
+        # הצגת התשובה
+        print(Fore.GREEN + f"\n💡 AI Advisor says: {answer}" + Style.RESET_ALL)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
+
+
+
+    # def get_advice(self):
+    #     question = input("Enter your question for AI Advisor: ")
+    #     answer = self.controller.get_advice(question)
+    #     print(Fore.GREEN + f"\nAI Advisor says: {answer}" + Style.RESET_ALL)
+    #     input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
 
     def show_portfolio(self):
         data = self.controller.get_portfolio_data()
@@ -208,32 +224,3 @@ class view:
         plt.pie(amounts, labels=names, autopct='%1.1f%%', startangle=140)
         plt.title('Portfolio Distribution')
         plt.show()
-
-    # def show_portfolio_graph(self):
-    #     portfolio = self.controller.get_portfolio_data()
-    #     if not portfolio:
-    #         print("❌ Your portfolio is empty.")
-    #         return
-
-    #     # סיכום נתוני התיק
-    #     labels = [sec.name for sec in portfolio]
-    #     sizes = [sec.basevalue * sec.ammont for sec in portfolio]
-
-    #     # גרף פאי לפי שווי השקעה
-    #     plt.figure(figsize=(8, 8))
-    #     plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-    #     plt.title('Portfolio Distribution by Value')
-    #     plt.axis('equal')  # עיגול
-    #     plt.show()
-
-    #     # גרף עמודות לפי סקטור
-    #     sectors = {}
-    #     for sec in portfolio:
-    #         sectors[sec.sector] = sectors.get(sec.sector, 0) + (sec.basevalue * sec.ammont)
-
-    #     plt.figure(figsize=(10, 6))
-    #     plt.bar(sectors.keys(), sectors.values())
-    #     plt.title('Portfolio Distribution by Sector')
-    #     plt.xlabel('Sector')
-    #     plt.ylabel('Total Value')
-    #     plt.show()

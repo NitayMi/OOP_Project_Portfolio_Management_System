@@ -45,11 +45,8 @@ def run_ai_advisor(portfolio, total_risk):
 
 # -------------------- פונקציה לשאלה חופשית -------------------- #
 def ask_custom_question():
-    # קודם לקבל את השאלה מהמשתמש
     question = simpledialog.askstring("Ask AI", "What would you like to ask?")
-
     if question:
-        # שליחה ל-AI ב-thread נפרד
         threading.Thread(target=lambda: send_question_to_ai(question)).start()
 
 

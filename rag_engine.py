@@ -1,24 +1,16 @@
-import chromadb
-from chromadb.utils import embedding_functions
 from sentence_transformers import SentenceTransformer
 
-# הגדרת מודל Embedding (המרת טקסט למספרים)
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")  # מודל מהיר, מתאים למחשב שלך
-
-# יצירת מאגר Chroma
-persist_directory = "db"  # לוודא שזה תואם למה שיש ב-loader
-client = chromadb.PersistentClient(path=persist_directory)
-collection = client.get_or_create_collection(name="my_collection")
-
-
 # פונקציה ליצירת embedding
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")  # זה בסדר שישאר כי זה רק הפונקציה
+
 def embed_text(text):
     return embedding_model.encode([text])[0].tolist()
 
-def query(question, top_k=3):
+def query(question: str, collection, top_k: int = 3):
     """
     Query the RAG knowledge base and return the most relevant document.
 
+    :param collection: The Chroma collection to search.
     :param question: The user's question.
     :param top_k: Number of top results to retrieve.
     :return: The most relevant document text or a default message if no result found.

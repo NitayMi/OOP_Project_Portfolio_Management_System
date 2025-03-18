@@ -4,8 +4,8 @@ import sqlite3
 conn = sqlite3.connect('investments.db')
 cursor = conn.cursor()
 
-# מחיקת הטבלה אם קיימת כדי שלא יהיו כפילויות
-cursor.execute('DROP TABLE IF EXISTS available_securities;')
+# # מחיקת הטבלה אם קיימת כדי שלא יהיו כפילויות
+# cursor.execute('DROP TABLE IF EXISTS available_securities;')
 
 # יצירת הטבלה לפי המודל שסיכמנו
 cursor.execute('''

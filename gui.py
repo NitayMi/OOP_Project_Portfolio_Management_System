@@ -5,12 +5,11 @@ from ttkbootstrap import Style
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import threading
-from controller import controller
 
 # שימוש בקונטרולר החדש
-from controller import ControllerV2
 from dbmodel import SqliteRepository
-from ollamamodel import OllamaAIAdvisor
+from ollamamodel import AIAdvisorRAG as OllamaAIAdvisor
+from controller import ControllerV2
 
 
 USE_NEW_CONTROLLER = True  # שנה ל-False כדי לעבוד עם ה-controller הישן
@@ -25,7 +24,6 @@ except ImportError:
         messagebox.showinfo("AI", "AI Advisor is not available.")
     def ask_custom_question():
         messagebox.showinfo("AI", "AI Advisor is not available.")
-
 
 class PortfolioApp(tk.Tk):
     def __init__(self):
@@ -55,37 +53,40 @@ class PortfolioApp(tk.Tk):
         self.risk_frame.destroy()  # מוחק את ה-frame של בחירת סיכון
         self.start_main_ui()  # ממשיך לממשק המלא
 
-
     def start_main_ui(self):
-        # self.controller = controller(self.risk_level)
+        self.controller = None
         if USE_NEW_CONTROLLER:
             db = SqliteRepository()
             ai = OllamaAIAdvisor()
             self.controller = ControllerV2(risk_level=self.risk_level, db_repo=db, ai_advisor=ai)
         else:
-            self.controller = controller(risk_level=self.risk_level)
+            self.controller = ControllerV2(risk_level=self.risk_level, db_repo=SqliteRepository(), ai_advisor=OllamaAIAdvisor())
+
         self.create_summary()
         self.create_tabs()
         self.refresh_all()
 
-
     def create_summary(self):
+        """יוצר את החלק העליון של הממשק עם סיכום התיק והכפתורים הראשיים."""
         self.summary_frame = ttk.Frame(self)
         self.summary_frame.pack(fill='x', pady=10)
 
+        # תוויות להצגת ערכי הסיכון והערך הכולל
         self.total_value_label = ttk.Label(self.summary_frame, text="Total Value: Calculating...")
         self.total_value_label.pack(side='left', padx=10)
 
         self.total_risk_label = ttk.Label(self.summary_frame, text="Total Risk: Calculating...")
         self.total_risk_label.pack(side='left', padx=10)
 
+        # 🔹 אתחול נכון של status_label למניעת שגיאות בגישה אליו בהמשך
+        self.status_label = ttk.Label(self.summary_frame, text="")  # יצירת תווית סטטוס
+        self.status_label.pack(side='left', padx=10)
+
         # כפתור ייעוץ AI לתיק
         ttk.Button(self.summary_frame, text="AI Portfolio Analysis", command=self.ask_ai_advisor).pack(side='right', padx=10)
 
-        # כפתור לשאלות חופשיות - בלי Thread, ישירות
-        ttk.Button(self.summary_frame, text="Ask AI (Free Question)", command=ask_custom_question).pack(side='right', padx=10)
-        
- 
+        # כפתור לשאלות חופשיות ל-AI
+        ttk.Button(self.summary_frame, text="Ask AI (Free Question)", command=self.ask_ai_free).pack(side='right', padx=10)
 
     def create_tabs(self):
         self.tab_control = ttk.Notebook(self)
@@ -229,30 +230,98 @@ class PortfolioApp(tk.Tk):
         ttk.Button(popup, text="Confirm Buy", command=confirm_buy).pack(pady=10)
 
     def ask_ai_advisor(self):
-        """
-        Ask AI advisor for investment advice based on the current portfolio and risk.
-        """
-        print("Asking AI advisor with portfolio and total risk...")
-        # שולף את התיק והסיכון
-        portfolio = self.portfolio_securities
+        """ מבקש ייעוץ AI תוך מניעת קריאות כפולות ועדכון סטטוס UI """
+        
+        if hasattr(self, "ai_processing") and self.ai_processing:
+            return  # מונע קריאה כפולה בזמן שה-AI כבר מעבד מידע
+
+        self.ai_processing = True  # מסמן שה-AI בתהליך עבודה
+        self.status_label.config(text="⏳ AI is processing...")  # הצגת חיווי למשתמש
+
+        # שולף את הנתונים הדרושים לפונקציה כדי למנוע TypeError
+        portfolio = self.controller.get_portfolio_data()
         total_risk = self.controller.get_total_risk()
-        # בונה שאלה ל-AI (אפשר גם להוסיף פורמט אם רוצים)
         question = "What should I invest in next based on my current portfolio and risk level?"
-        # שולח את הכל דרך ה-controller
-        answer = self.controller.get_advice(question)
-        # מציג תשובה למשתמש
-        messagebox.showinfo("AI Advisor Recommendation", answer)
+
+        def worker():
+            try:
+                answer = self.controller.get_advice(question, portfolio, total_risk)  # קריאה עם הנתונים הנכונים
+            except Exception as e:
+                answer = f"⚠️ AI Error: {str(e)}"  # במקרה של שגיאה, החזר תשובה מתאימה
+
+            # עדכון ה-UI חייב להיעשות מתוך ה-Thread הראשי
+            self.after(0, lambda: self.display_ai_result(answer))  # הצגת התוצאה
+            self.after(0, lambda: self.status_label.config(text="✅ AI Response Ready"))  # עדכון סטטוס
+            self.after(0, lambda: setattr(self, "ai_processing", False))  # משחרר את היכולת לקרוא שוב
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def run_ai(self, question):
+        """ מפעיל את ה-AI בצורה אסינכרונית עם חיווי מצב """
+        
+        self.status_label.config(text="⏳ AI is processing...")  # הצגת חיווי שה-AI עובד
+
+        def worker():
+            db = SqliteRepository()  # יצירת חיבור חדש למסד הנתונים (נדרש לכל Thread)
+            portfolio = db.get_portfolio_data()  # טעינת התיק מהמסד בתוך ה-Thread הנכון
+            total_risk = self.controller.get_total_risk()
+
+            answer = self.controller.get_advice(question)  # קריאת התשובה מה-AI
+            
+            # עדכון ה-UI חייב להיעשות מתוך ה-Thread הראשי
+            self.after(0, lambda: self.display_ai_result(answer))  # הצגת התוצאה
+            self.after(0, lambda: self.status_label.config(text="✅ AI Response Ready"))  # עדכון סטטוס
+
+        threading.Thread(target=worker, daemon=True).start()
+
+
+    def show_ai_response(self, answer):
+        """
+        הצגת התשובה של ה-AI בחלון נגלל.
+        """
+        popup = tk.Toplevel(self)
+        popup.title("AI Advisor Response")
+        
+        text = tk.Text(popup, wrap='word', height=15, width=80)
+        text.insert('1.0', answer)
+        text.pack(expand=True, fill='both')
+
+        scrollbar = ttk.Scrollbar(popup, command=text.yview)
+        scrollbar.pack(side="right", fill="y")
+        text.config(yscrollcommand=scrollbar.set)
+
+
+    # def ask_ai_advisor(self):
+    #     """
+    #     Ask AI advisor for investment advice based on the current portfolio and risk.
+    #     """
+    #     print("Asking AI advisor with portfolio and total risk...")
+    #     # שולף את התיק והסיכון
+    #     portfolio = self.portfolio_securities
+    #     total_risk = self.controller.get_total_risk()
+    #     # בונה שאלה ל-AI (אפשר גם להוסיף פורמט אם רוצים)
+    #     question = "What should I invest in next based on my current portfolio and risk level?"
+    #     # שולח את הכל דרך ה-controller
+    #     answer = self.controller.get_advice(question)  # אתחול משתנה ישירות
+    #     # מציג תשובה למשתמש
+    #     messagebox.showinfo("AI Advisor Recommendation", answer)
 
     def ask_ai_free(self):
         threading.Thread(target=ask_custom_question).start()
 
     def process_ai_advice(self, question):
-        answer = self.controller.get_advice(question)
+        answer = self.controller.get_advice(question)  # מוודא שהמשתנה מאותחל
+
+        if not answer:  # מונע קריאה כפולה ומטפל במקרה של תשובה ריקה
+            messagebox.showinfo("AI Advisor Response", "AI did not return a response.")
+            return
+
         popup = tk.Toplevel(self)
         popup.title("AI Advisor Response")
         text = tk.Text(popup, wrap='word')
         text.insert('1.0', answer)
         text.pack(expand=True, fill='both')
+
 
 if __name__ == "__main__":
     app = PortfolioApp()

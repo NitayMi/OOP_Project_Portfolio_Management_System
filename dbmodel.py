@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from abc import ABC, abstractmethod
 
@@ -36,11 +37,19 @@ class IDataRepository(ABC):
     def clear_portfolio(self):
         pass
 
-
 class dbmodel:
-    def __init__(self):
+    _instance = None  # מחלקת Singleton להבטחת חיבור יחיד למסד הנתונים
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(dbmodel, cls).__new__(cls)
+            cls._instance.init_db()
+        return cls._instance
+
+    def init_db(self):
         print("DB connect")
-        self.conn = sqlite3.connect('investments.db')
+        self.db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'investments.db')
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)  # מאפשר גישה ממספר תהליכים
         self.cursor = self.conn.cursor()
         self.create_table()
 
@@ -159,10 +168,19 @@ class dbmodel:
         self.conn.commit()
 
     def get_portfolio_data(self):
-        self.cursor.execute("SELECT * FROM investments")
-        rows = self.cursor.fetchall()
-        return [SecurityData(*row) for row in rows] if rows else []
-    
+        """
+        Retrieves the current portfolio from the database in a thread-safe manner.
+        Uses the correct database path to avoid creating a duplicate DB file.
+        """
+        try:
+            self.cursor.execute("SELECT * FROM investments")
+            rows = self.cursor.fetchall()
+            return [SecurityData(*row) for row in rows] if rows else []
+        except sqlite3.OperationalError as e:
+            print(f"Database error: {e}")
+            return []
+
+
 class SqliteRepository(IDataRepository):
     def __init__(self):
         self.db = dbmodel()
