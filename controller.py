@@ -75,7 +75,6 @@ class ControllerV2:
         Get AI-based investment advice using AIAdvisorRAG, based on user's portfolio.
         """
         print("🔍 Getting AI advice with RAG and personalized portfolio context...")
-
         # שימוש בנתוני התיק שכבר נטענו, כדי לא לקרוא שוב ל-DB
         answer = self.ai_advisor.get_advice(f"Give a concise investment recommendation in 2 sentences: {question}", portfolio_data=portfolio)
 

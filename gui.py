@@ -358,7 +358,6 @@ class PortfolioApp(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
 
-
 if __name__ == "__main__":
     app = PortfolioApp()
     app.mainloop()
