@@ -1,10 +1,11 @@
-
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from ttkbootstrap import Style
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import threading
+import queue
+from concurrent.futures import ThreadPoolExecutor
 
 # שימוש בקונטרולר החדש
 from dbmodel import SqliteRepository
@@ -250,7 +251,7 @@ class PortfolioApp(tk.Tk):
                 answer = f"⚠️ AI Error: {str(e)}"  # במקרה של שגיאה, החזר תשובה מתאימה
 
             # עדכון ה-UI חייב להיעשות מתוך ה-Thread הראשי
-            self.after(0, lambda: self.display_ai_result(answer))  # הצגת התוצאה
+            self.after(0, lambda: self.show_ai_response(answer))  # הצגת התוצאה
             self.after(0, lambda: self.status_label.config(text="✅ AI Response Ready"))  # עדכון סטטוס
             self.after(0, lambda: setattr(self, "ai_processing", False))  # משחרר את היכולת לקרוא שוב
 
@@ -269,11 +270,10 @@ class PortfolioApp(tk.Tk):
             answer = self.controller.get_advice(question)  # קריאת התשובה מה-AI
             
             # עדכון ה-UI חייב להיעשות מתוך ה-Thread הראשי
-            self.after(0, lambda: self.display_ai_result(answer))  # הצגת התוצאה
+            self.after(0, lambda: self.show_ai_response(answer))  # הצגת התוצאה
             self.after(0, lambda: self.status_label.config(text="✅ AI Response Ready"))  # עדכון סטטוס
 
         threading.Thread(target=worker, daemon=True).start()
-
 
     def show_ai_response(self, answer):
         """
@@ -290,37 +290,73 @@ class PortfolioApp(tk.Tk):
         scrollbar.pack(side="right", fill="y")
         text.config(yscrollcommand=scrollbar.set)
 
-
-    # def ask_ai_advisor(self):
-    #     """
-    #     Ask AI advisor for investment advice based on the current portfolio and risk.
-    #     """
-    #     print("Asking AI advisor with portfolio and total risk...")
-    #     # שולף את התיק והסיכון
-    #     portfolio = self.portfolio_securities
-    #     total_risk = self.controller.get_total_risk()
-    #     # בונה שאלה ל-AI (אפשר גם להוסיף פורמט אם רוצים)
-    #     question = "What should I invest in next based on my current portfolio and risk level?"
-    #     # שולח את הכל דרך ה-controller
-    #     answer = self.controller.get_advice(question)  # אתחול משתנה ישירות
-    #     # מציג תשובה למשתמש
-    #     messagebox.showinfo("AI Advisor Recommendation", answer)
-
     def ask_ai_free(self):
-        threading.Thread(target=ask_custom_question).start()
+        """ פותח דיאלוג להזנת שאלה ושולח אותה ל-AI """
+        def get_user_question():
+            question = simpledialog.askstring("Ask AI", "What would you like to ask?")
+            if question:  # אם המשתמש הזין שאלה, שולחים אותה ל-AI
+                self.process_ai_question(question)
+            else:
+                messagebox.showinfo("AI", "No question entered.")
 
-    def process_ai_advice(self, question):
-        answer = self.controller.get_advice(question)  # מוודא שהמשתנה מאותחל
+        self.after(0, get_user_question)  # מבצע את הפעולה מתוך ה-Thread הראשי
 
-        if not answer:  # מונע קריאה כפולה ומטפל במקרה של תשובה ריקה
-            messagebox.showinfo("AI Advisor Response", "AI did not return a response.")
-            return
+# עובד טוב בלי לשאול אם להתייחס לנתונים שולח דיםולטיבי
+    # def process_ai_question(self, question):
+    #     """ שולח את השאלה ל-AI, מציג סטטוס ומביא את התשובה חזרה ל-UI """
+    #     self.status_label.config(text="⏳ AI is processing...")  # עדכון חיווי למשתמש
 
-        popup = tk.Toplevel(self)
-        popup.title("AI Advisor Response")
-        text = tk.Text(popup, wrap='word')
-        text.insert('1.0', answer)
-        text.pack(expand=True, fill='both')
+    #     def worker():
+    #         try:
+    #             # שליפת הנתונים שה-AI זקוק להם
+    #             portfolio = self.controller.get_portfolio_data()  
+    #             total_risk = self.controller.get_total_risk()
+                
+    #             # שליחת השאלה ל-AI עם כל הנתונים הנדרשים
+    #             answer = self.controller.get_advice(question, portfolio, total_risk)  
+
+    #             if not answer:
+    #                 answer = "⚠️ AI did not return a response."
+    #         except Exception as e:
+    #             answer = f"⚠️ AI Error: {str(e)}"
+
+    #         # עדכון ה-UI חייב להתבצע מה-Thread הראשי
+    #         self.after(0, lambda: self.show_ai_response(answer))
+    #         self.after(0, lambda: self.status_label.config(text="✅ AI Response Ready"))
+
+    #     threading.Thread(target=worker, daemon=True).start()
+
+# שואל אם להתייחס לנתונים בתיק ועובד טוב
+    def process_ai_question(self, question):
+        """
+        שולח את השאלה ל-AI, עם או בלי נתוני התיק, לפי בחירת המשתמש.
+        """
+        use_portfolio = messagebox.askyesno("AI Question", "Do you want to include your portfolio data in the AI response?")
+
+        self.status_label.config(text="⏳ AI is processing...")  # עדכון חיווי למשתמש
+
+        def worker():
+            try:
+                if use_portfolio:
+                    portfolio = self.controller.get_portfolio_data()
+                    total_risk = self.controller.get_total_risk()
+                    answer = self.controller.get_advice(question, portfolio, total_risk)  # קריאה עם נתונים
+                else:
+                    answer = self.controller.get_advice(question, [], 0)  # במקום להשאיר ריק, נעביר רשימה ריקה ו-0 כדי למנוע שגיאה
+
+                if not answer:
+                    answer = "⚠️ AI did not return a response."
+            except TypeError as e:
+                answer = f"⚠️ AI Error: {str(e)}\nCheck if `get_advice` supports questions without portfolio data."
+            except Exception as e:
+                answer = f"⚠️ AI Error: {str(e)}"
+
+            # עדכון ה-UI חייב להתבצע מה-Thread הראשי
+            self.after(0, lambda: self.show_ai_response(answer))
+            self.after(0, lambda: self.status_label.config(text="✅ AI Response Ready"))
+
+        threading.Thread(target=worker, daemon=True).start()
+
 
 
 if __name__ == "__main__":
