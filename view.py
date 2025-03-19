@@ -8,9 +8,6 @@ from rag_loader import get_collection  # טעינת הקולקשן תתבצע ר
 
 
 USE_NEW_CONTROLLER = True  # שנה ל-False כדי לעבוד עם ה-controller הישן
-# class view:
-#     def __init__(self):
-#         self.controller = None
 
 class view:
     def __init__(self, ai_advisor=None):
@@ -179,8 +176,6 @@ class view:
         # הצגת התשובה
         print(Fore.GREEN + f"\n💡 AI Advisor says: {answer}" + Style.RESET_ALL)
         input(Fore.CYAN + "\nPress Enter to return to menu..." + Style.RESET_ALL)
-
-
 
     # def get_advice(self):
     #     question = input("Enter your question for AI Advisor: ")
