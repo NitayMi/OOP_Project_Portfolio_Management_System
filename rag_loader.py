@@ -66,9 +66,6 @@ def get_collection():
 #     return collection
 
 
-
-
-
 # # בדיקה האם כבר קיימים נתונים במאגר
 # if len(collection.get()['ids']) > 0:
 #     print("✅ Knowledge base already loaded. Skipping reload.")
