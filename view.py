@@ -6,7 +6,6 @@ from dbmodel import SecurityData, dbmodel, SqliteRepository
 from ollamamodel import IAIAdvisor, AIAdvisorRAG
 from rag_loader import get_collection  # טעינת הקולקשן תתבצע רק כשצריך
 
-
 USE_NEW_CONTROLLER = True  # שנה ל-False כדי לעבוד עם ה-controller הישן
 
 class view:
