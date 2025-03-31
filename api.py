@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from controller import controller, ControllerV2
+from controller import ControllerV2
 from dbmodel import SqliteRepository
 from ollamamodel import AIAdvisorRAG
 
@@ -19,7 +19,7 @@ class TradeRequest(BaseModel):
 @app.get("/portfolio")
 def get_portfolio():
     try:
-        c = controller("Medium")
+        c = ControllerV2("Medium")
         portfolio = c.get_portfolio_data()
         return [vars(item) for item in portfolio]
     except Exception as e:
@@ -29,7 +29,7 @@ def get_portfolio():
 @app.get("/risk")
 def get_total_risk():
     try:
-        c = controller("Medium")
+        c = ControllerV2("Medium")
         risk = c.get_total_risk()
         return {"total_risk": risk}
     except Exception as e:
@@ -39,7 +39,7 @@ def get_total_risk():
 @app.post("/buy")
 def buy(trade: TradeRequest):
     try:
-        c = controller("Medium")
+        c = ControllerV2("Medium")
         success, message = c.buy(trade.name, trade.sector, trade.variance, trade.security_type, trade.subtype, trade.amount, trade.basevalue)
         return {"success": success, "message": message}
     except Exception as e:
@@ -49,7 +49,7 @@ def buy(trade: TradeRequest):
 @app.post("/sell")
 def sell(trade: TradeRequest):
     try:
-        c = controller("Medium")
+        c = ControllerV2("Medium")
         success, message = c.sell(trade.name, trade.security_type, trade.sector, trade.subtype, trade.amount)
         return {"success": success, "message": message}
     except Exception as e:
@@ -82,3 +82,12 @@ def rag_advice(request: AIRequest):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
+
+
+# הפעלת השרת
+# אם אתה רוצה להריץ את השרת, השתמש בפקודה הבאה:
+
+# uvicorn api:app --reload
